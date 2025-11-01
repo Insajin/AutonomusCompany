@@ -25,11 +25,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
-    # Working directory for all steps
-    defaults:
-      run:
-        working-directory: frontend
-
     steps:
       # Step 1: Checkout code
       - name: Checkout code
@@ -43,23 +38,26 @@ jobs:
           cache: 'npm'
           cache-dependency-path: package-lock.json
 
-      # Step 3: Install dependencies (with workspaces from root)
+      # Step 3: Install all workspace dependencies from root
       - name: Install dependencies
-        run: cd $GITHUB_WORKSPACE && npm ci --workspace=frontend
+        run: npm ci
 
       # Step 4: Run linter
       - name: Lint code
+        working-directory: frontend
         run: npm run lint
         continue-on-error: false
 
       # Step 5: Type check (if TypeScript)
       - name: Type check
+        working-directory: frontend
         run: npm run type-check
         if: hashFiles('frontend/tsconfig.json') != ''
         continue-on-error: false
 
       # Step 6: Run tests with coverage
       - name: Run tests
+        working-directory: frontend
         run: npm test -- --coverage --ci
         env:
           CI: true
@@ -119,6 +117,7 @@ ${total.statements.pct < 70 ? '⚠️ **Warning**: Coverage is below the thresho
 
       # Step 8: Build application
       - name: Build
+        working-directory: frontend
         run: npm run build
         env:
           CI: true
