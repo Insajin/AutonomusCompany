@@ -45,9 +45,8 @@ jobs:
 
       # Step 3: Install dependencies (with workspaces)
       - name: Install dependencies
-        run: |
-          cd ..
-          npm ci --workspace=frontend
+        working-directory: .
+        run: npm ci --workspace=frontend
 
       # Step 4: Run linter
       - name: Lint code
