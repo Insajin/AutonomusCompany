@@ -19,8 +19,6 @@ updates:
       - "dependencies"
       - "frontend"
       - "automated"
-    reviewers:
-      - "your-team-name"  # Replace with your team
     # Ignore major version updates for these packages
     ignore:
       - dependency-name: "react"
@@ -44,8 +42,6 @@ updates:
       - "dependencies"
       - "backend"
       - "automated"
-    reviewers:
-      - "your-team-name"  # Replace with your team
 
   # GitHub Actions workflows
   - package-ecosystem: "github-actions"

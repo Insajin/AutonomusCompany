@@ -1,16 +1,52 @@
 # AI-Powered Monorepo Automation Template
 
+[![CodeQL](https://github.com/Insajin/AutonomusCompany/workflows/CodeQL%20Security%20Analysis/badge.svg)](https://github.com/Insajin/AutonomusCompany/actions/workflows/codeql.yml)
+[![Frontend CI](https://github.com/Insajin/AutonomusCompany/workflows/Frontend%20CI/badge.svg)](https://github.com/Insajin/AutonomusCompany/actions/workflows/frontend-ci.yml)
+[![Backend CI](https://github.com/Insajin/AutonomusCompany/workflows/Backend%20CI/badge.svg)](https://github.com/Insajin/AutonomusCompany/actions/workflows/backend-ci.yml)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A comprehensive GitHub repository template that automates development workflows for monorepo projects using Claude Code AI.
 
 ## Features
 
+### 🤖 AI-Powered Development
 - **Automated Code Review** - Claude Code reviews every PR within 2 minutes
-- **AI-Assisted Fixes** - Apply suggested improvements with a simple comment
+- **AI-Assisted Fixes** - Apply suggested improvements with `@claude apply`
+- **Intelligent Suggestions** - Security, bugs, performance, and quality feedback
+
+### 🔒 Security & Quality
+- **CodeQL Analysis** - Automated security vulnerability scanning
+- **Code Coverage** - 70% threshold with PR reports
+- **Pre-commit Hooks** - Lint, format, and validate before commit
+- **Conventional Commits** - Enforced commit message format
+
+### ⚡ Performance Monitoring
+- **Lighthouse CI** - Automated performance audits
+- **Core Web Vitals** - Track FCP, LCP, CLS, TTI
+- **Bundle Size Tracking** - Monitor frontend bundle sizes
+- **Performance Budgets** - Fail builds that exceed limits
+
+### 🚀 Release Automation
+- **Semantic Release** - Auto versioning based on commits
+- **Changelog Generation** - Automatic CHANGELOG.md updates
+- **GitHub Releases** - Auto-create releases with notes
+- **Conventional Commits** - Smart version bumping
+
+### 🔧 Developer Experience
+- **Monorepo Support** - Separate frontend/backend workflows
 - **Intelligent CI/CD** - Only build/test changed components (40% faster)
-- **Documentation Sync** - Auto-update docs when code changes
-- **Dependency Management** - Weekly automated dependency update PRs
-- **Project Tracking** - Auto-update GitHub Projects board
-- **No API Costs** - Uses Claude Max subscription (OAuth authentication)
+- **Dev Environment Setup** - One-command setup script
+- **Documentation** - Templates, guides, and examples
+
+### 📦 Dependency Management
+- **Dependabot** - Weekly automated dependency updates
+- **Multiple Ecosystems** - npm, Python, GitHub Actions
+- **Smart Grouping** - Separate PRs per component
+
+### 💰 Cost Optimization
+- **No API Costs** - Uses Claude Max subscription (OAuth)
+- **Efficient CI** - Path-based filtering reduces build time
+- **Caching** - Dependencies and build artifacts cached
 
 ## Quick Start
 
@@ -35,8 +71,11 @@ This template includes pre-configured GitHub Actions workflows:
 |----------|------|---------|---------|
 | **Code Review** | `pr-review.yml` | PR opened | Automated code review by Claude Code |
 | **AI Fixes** | `ai-comment.yml` | `@claude` command | Apply AI-suggested fixes |
-| **Frontend CI** | `frontend-ci.yml` | Frontend changes | Build/test frontend |
-| **Backend CI** | `backend-ci.yml` | Backend changes | Build/test backend |
+| **Frontend CI** | `frontend-ci.yml` | Frontend changes | Build/test frontend with coverage |
+| **Backend CI** | `backend-ci.yml` | Backend changes | Build/test backend with coverage |
+| **CodeQL** | `codeql.yml` | PR + Weekly | Security vulnerability scanning |
+| **Lighthouse** | `lighthouse.yml` | Frontend changes | Performance audit (Core Web Vitals) |
+| **Semantic Release** | `release.yml` | Merge to main | Auto versioning & changelog |
 | **Doc Sync** | `docs-sync.yml` | Merge to main | Update documentation |
 | **Deploy** | `deploy.yml` | Merge to main | Deploy to production |
 | **Dependencies** | `dependabot.yml` | Weekly | Dependency updates |

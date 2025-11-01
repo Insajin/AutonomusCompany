@@ -47,6 +47,13 @@ jobs:
         with:
           script: |
             const body = context.payload.comment.body;
+
+            // Input validation: check length
+            if (body.length > 10000) {
+              core.setFailed('Comment is too long. Maximum 10000 characters allowed.');
+              return;
+            }
+
             let command = 'apply';
             let details = '';
 
@@ -56,11 +63,21 @@ jobs:
             } else if (body.includes('@claude fix')) {
               command = 'fix';
               const match = body.match(/@claude fix\s+(.+)/i);
-              details = match ? match[1] : 'specific issue';
+              if (match && match[1]) {
+                // Limit details to 1000 characters and sanitize
+                details = match[1].trim().substring(0, 1000);
+              } else {
+                details = 'specific issue';
+              }
             } else if (body.includes('@claude explain')) {
               command = 'explain';
               const match = body.match(/@claude explain\s+(.+)/i);
-              details = match ? match[1] : 'code';
+              if (match && match[1]) {
+                // Limit details to 1000 characters and sanitize
+                details = match[1].trim().substring(0, 1000);
+              } else {
+                details = 'code';
+              }
             } else {
               command = 'unknown';
             }
