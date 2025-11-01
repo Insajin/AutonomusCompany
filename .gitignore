@@ -1,0 +1,133 @@
+# AI-Powered Monorepo Template - .gitignore
+
+# === Node.js / JavaScript / TypeScript ===
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+.nuxt/
+.cache/
+.parcel-cache/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+logs/
+*.log
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# === IDEs and Editors ===
+# VSCode
+.vscode/
+*.code-workspace
+
+# JetBrains (IntelliJ, WebStorm, PyCharm, etc.)
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# === Operating Systems ===
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+
+# === Testing ===
+coverage/
+*.lcov
+.nyc_output/
+test-results/
+playwright-report/
+
+# === Temporary Files ===
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# === Secrets and Keys ===
+*.pem
+*.key
+*.cert
+*.crt
+secrets/
+.secrets/
+
+# === Build Tools ===
+.turbo/
+.eslintcache
+.stylelintcache
+
+# === Database ===
+*.db
+*.sqlite
+*.sqlite3
+
+# === Documentation ===
+# Keep example docs, but ignore generated docs
+# (Uncomment if you generate docs)
+# docs/_build/
+
+# === Misc ===
+.vercel
+.netlify

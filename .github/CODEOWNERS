@@ -1,0 +1,29 @@
+# CODEOWNERS
+# Define individuals or teams responsible for code in this repository
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owners for everything in the repo
+# *       @your-username-or-team
+
+# GitHub Actions workflows
+/.github/workflows/    @your-username-or-team
+
+# Frontend code
+/frontend/             @frontend-team
+
+# Backend code
+/backend/              @backend-team
+
+# Documentation
+/docs/                 @docs-team
+*.md                   @docs-team
+
+# Configuration files
+/.github/              @devops-team
+/scripts/              @devops-team
+*.yml                  @devops-team
+*.json                 @devops-team
+
+# Security-sensitive files
+/.env.example          @security-team
+/.github/workflows/    @security-team

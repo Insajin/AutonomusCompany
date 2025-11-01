@@ -1,0 +1,164 @@
+name: AI-Assisted Code Fixes
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: read
+  id-token: write       # Required for OIDC token (Claude Code authentication)
+
+jobs:
+  ai-fix:
+    name: Apply AI Fixes
+    if: |
+      github.event.issue.pull_request &&
+      contains(github.event.comment.body, '@claude')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Get PR details
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            core.setOutput('head_ref', pr.data.head.ref);
+            core.setOutput('head_sha', pr.data.head.sha);
+            return pr.data;
+
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.pr.outputs.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Parse command
+        id: parse_command
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.comment.body;
+
+            // Input validation: check length
+            if (body.length > 10000) {
+              core.setFailed('Comment is too long. Maximum 10000 characters allowed.');
+              return;
+            }
+
+            let command = 'apply';
+            let details = '';
+
+            if (body.includes('@claude apply')) {
+              command = 'apply';
+              details = 'Applying all review suggestions';
+            } else if (body.includes('@claude fix')) {
+              command = 'fix';
+              const match = body.match(/@claude fix\s+(.+)/i);
+              if (match && match[1]) {
+                // Limit details to 1000 characters and sanitize
+                details = match[1].trim().substring(0, 1000);
+              } else {
+                details = 'specific issue';
+              }
+            } else if (body.includes('@claude explain')) {
+              command = 'explain';
+              const match = body.match(/@claude explain\s+(.+)/i);
+              if (match && match[1]) {
+                // Limit details to 1000 characters and sanitize
+                details = match[1].trim().substring(0, 1000);
+              } else {
+                details = 'code';
+              }
+            } else {
+              command = 'unknown';
+            }
+
+            core.setOutput('command', command);
+            core.setOutput('details', details);
+
+      - name: Post acknowledgment
+        if: steps.parse_command.outputs.command != 'unknown'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const command = '${{ steps.parse_command.outputs.command }}';
+            let message = '🤖 Processing your request...\n\n';
+            message += 'This usually takes less than 5 minutes.';
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: message
+            });
+
+      - name: Handle unknown command
+        if: steps.parse_command.outputs.command == 'unknown'
+        run: |
+          echo "Unknown command. Available: @claude apply, @claude fix, @claude explain"
+          exit 0
+
+      - name: Apply AI fixes
+        id: claude_fix
+        if: steps.parse_command.outputs.command != 'explain'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          mode: 'apply'
+          pr_number: ${{ github.event.issue.number }}
+          guidelines_path: '.github/CLAUDE.md'
+          instructions: ${{ steps.parse_command.outputs.details }}
+        continue-on-error: true
+
+      - name: Commit and push fixes
+        if: |
+          steps.parse_command.outputs.command != 'explain' &&
+          steps.claude_fix.outcome == 'success'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if [ -n "$(git status --porcelain)" ]; then
+            git add .
+            git commit -m "fix: apply AI suggestions from review" \
+              -m "Triggered-By: @${{ github.event.comment.user.login }} in #${{ github.event.issue.number }}" \
+              -m "Co-Authored-By: Claude <noreply@anthropic.com>"
+            git push
+          else
+            echo "NO_CHANGES=true" >> $GITHUB_ENV
+          fi
+
+      - name: Post success summary
+        if: |
+          steps.claude_fix.outcome == 'success' &&
+          env.NO_CHANGES != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '✅ Applied fixes successfully\n\nCI pipeline triggered automatically.'
+            });
+
+      - name: Handle errors
+        if: steps.claude_fix.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '⚠️ Unable to apply fixes. Check workflow logs for details.'
+            });

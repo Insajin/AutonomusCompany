@@ -1,0 +1,82 @@
+name: Lighthouse Performance Audit
+
+on:
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - '!frontend/**/*.md'
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  lighthouse:
+    name: Lighthouse CI
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+        env:
+          CI: true
+
+      - name: Run Lighthouse CI
+        uses: treosh/lighthouse-ci-action@v10
+        with:
+          urls: |
+            http://localhost:3000
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+          configPath: './frontend/.lighthouserc.json'
+          runs: 3
+
+      - name: Post Lighthouse results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const comment = `## ⚡ Lighthouse Performance Audit
+
+Performance audit completed! Check the detailed report for Core Web Vitals and optimization opportunities.
+
+**Note**: Full Lighthouse report available in workflow artifacts.
+
+**Performance Budget**:
+- Performance: ≥90
+- Accessibility: ≥90
+- Best Practices: ≥90
+- SEO: ≥90
+
+Review the artifacts for detailed metrics on:
+- 🎯 First Contentful Paint (FCP)
+- ⚡ Largest Contentful Paint (LCP)
+- 📊 Cumulative Layout Shift (CLS)
+- 🏃 Time to Interactive (TTI)
+`;
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });

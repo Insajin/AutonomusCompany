@@ -1,0 +1,164 @@
+name: Frontend CI
+
+# Only run when frontend files change
+on:
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - '!frontend/**/*.md'  # Exclude documentation
+      - '!frontend/docs/**'
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '!frontend/**/*.md'
+
+# Least-privilege permissions
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  test:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # Working directory for all steps
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      # Step 1: Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Setup Node.js with caching
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      # Step 3: Install dependencies (with caching)
+      - name: Install dependencies
+        run: npm ci
+
+      # Step 4: Run linter
+      - name: Lint code
+        run: npm run lint
+        continue-on-error: false
+
+      # Step 5: Type check (if TypeScript)
+      - name: Type check
+        run: npm run type-check
+        if: hashFiles('frontend/tsconfig.json') != ''
+        continue-on-error: false
+
+      # Step 6: Run tests with coverage
+      - name: Run tests
+        run: npm test -- --coverage --ci
+        env:
+          CI: true
+
+      # Step 7: Upload coverage report
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/
+          retention-days: 7
+
+      # Step 7.5: Post coverage report to PR
+      - name: Coverage report comment
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = 'frontend/coverage/coverage-summary.json';
+
+            if (!fs.existsSync(path)) {
+              console.log('Coverage summary not found, skipping comment');
+              return;
+            }
+
+            const coverage = JSON.parse(fs.readFileSync(path, 'utf8'));
+            const { total } = coverage;
+
+            const formatPercent = (metric) => {
+              const pct = metric.pct || 0;
+              const emoji = pct >= 80 ? '✅' : pct >= 70 ? '⚠️' : '❌';
+              return `${emoji} ${pct.toFixed(2)}%`;
+            };
+
+            const comment = `## 📊 Frontend Test Coverage Report
+
+| Metric | Coverage |
+|--------|----------|
+| **Statements** | ${formatPercent(total.statements)} (${total.statements.covered}/${total.statements.total}) |
+| **Branches** | ${formatPercent(total.branches)} (${total.branches.covered}/${total.branches.total}) |
+| **Functions** | ${formatPercent(total.functions)} (${total.functions.covered}/${total.functions.total}) |
+| **Lines** | ${formatPercent(total.lines)} (${total.lines.covered}/${total.lines.total}) |
+
+**Coverage Threshold**: 70% (Target: 80%)
+
+${total.statements.pct < 70 ? '⚠️ **Warning**: Coverage is below the threshold!' : ''}
+`;
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      # Step 8: Build application
+      - name: Build
+        run: npm run build
+        env:
+          CI: true
+
+      # Step 9: Upload build artifacts
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/.next/  # or frontend/dist/ for other frameworks
+          retention-days: 7
+
+      # Step 10: Report success
+      - name: Report success
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            if (context.eventName === 'pull_request') {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: '✅ **Frontend CI passed**\n\nAll tests, linting, and build completed successfully.\n\n**Next steps**: Review the changes and merge when ready.'
+              });
+            }
+
+      # Step 11: Report failure
+      - name: Report failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            if (context.eventName === 'pull_request') {
+              const runUrl = `${context.payload.repository.html_url}/actions/runs/${context.runId}`;
+              const message = `❌ Frontend CI failed\n\nOne or more checks failed:\n- Lint\n- Type check\n- Tests\n- Build\n\nDetails: [View workflow run](${runUrl})\n\nPlease fix the errors and push again.`;
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: message
+              });
+            }
