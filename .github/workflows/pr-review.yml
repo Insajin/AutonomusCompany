@@ -9,6 +9,7 @@ on:
 permissions:
   contents: read        # Read repository code
   pull-requests: write  # Post comments on PRs
+  id-token: write       # Required for OIDC token (Claude Code authentication)
 
 jobs:
   code-review:
