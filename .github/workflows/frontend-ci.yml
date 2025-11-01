@@ -43,10 +43,9 @@ jobs:
           cache: 'npm'
           cache-dependency-path: package-lock.json
 
-      # Step 3: Install dependencies (with workspaces)
+      # Step 3: Install dependencies (with workspaces from root)
       - name: Install dependencies
-        working-directory: .
-        run: npm ci --workspace=frontend
+        run: cd $GITHUB_WORKSPACE && npm ci --workspace=frontend
 
       # Step 4: Run linter
       - name: Lint code

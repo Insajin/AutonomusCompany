@@ -52,11 +52,10 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      # Step 3: Install dependencies (Node.js with workspaces)
+      # Step 3: Install dependencies (Node.js with workspaces from root)
       - name: Install Node.js dependencies
         if: hashFiles('backend/package.json') != ''
-        working-directory: .
-        run: npm ci --workspace=backend
+        run: cd $GITHUB_WORKSPACE && npm ci --workspace=backend
 
       # Alternative: Install dependencies (Python)
       - name: Install Python dependencies
