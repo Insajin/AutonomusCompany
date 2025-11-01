@@ -42,7 +42,7 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
+          cache-dependency-path: package-lock.json
 
       # Alternative: Setup Python with caching (for Python backend)
       - name: Setup Python
@@ -52,10 +52,12 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      # Step 3: Install dependencies (Node.js)
+      # Step 3: Install dependencies (Node.js with workspaces)
       - name: Install Node.js dependencies
         if: hashFiles('backend/package.json') != ''
-        run: npm ci
+        run: |
+          cd ..
+          npm ci --workspace=backend
 
       # Alternative: Install dependencies (Python)
       - name: Install Python dependencies
