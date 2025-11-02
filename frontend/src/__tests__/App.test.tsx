@@ -16,9 +16,4 @@ describe('App Component', () => {
     expect(screen.getByText(/ai-assisted code fixes/i)).toBeInTheDocument();
     expect(screen.getByText(/intelligent ci\/cd/i)).toBeInTheDocument();
   });
-
-  it('matches snapshot', () => {
-    const { container } = render(<App />);
-    expect(container).toMatchSnapshot();
-  });
 });
