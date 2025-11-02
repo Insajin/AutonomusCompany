@@ -25,11 +25,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
-    # Working directory for all steps
-    defaults:
-      run:
-        working-directory: frontend
-
     steps:
       # Step 1: Checkout code
       - name: Checkout code
@@ -41,25 +36,28 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      # Step 3: Install dependencies (with caching)
+      # Step 3: Install all workspace dependencies from root
       - name: Install dependencies
         run: npm ci
 
       # Step 4: Run linter
       - name: Lint code
+        working-directory: frontend
         run: npm run lint
         continue-on-error: false
 
       # Step 5: Type check (if TypeScript)
       - name: Type check
+        working-directory: frontend
         run: npm run type-check
         if: hashFiles('frontend/tsconfig.json') != ''
         continue-on-error: false
 
       # Step 6: Run tests with coverage
       - name: Run tests
+        working-directory: frontend
         run: npm test -- --coverage --ci
         env:
           CI: true
@@ -93,22 +91,23 @@ jobs:
             const formatPercent = (metric) => {
               const pct = metric.pct || 0;
               const emoji = pct >= 80 ? '✅' : pct >= 70 ? '⚠️' : '❌';
-              return `${emoji} ${pct.toFixed(2)}%`;
+              return emoji + ' ' + pct.toFixed(2) + '%';
             };
 
-            const comment = `## 📊 Frontend Test Coverage Report
-
-| Metric | Coverage |
-|--------|----------|
-| **Statements** | ${formatPercent(total.statements)} (${total.statements.covered}/${total.statements.total}) |
-| **Branches** | ${formatPercent(total.branches)} (${total.branches.covered}/${total.branches.total}) |
-| **Functions** | ${formatPercent(total.functions)} (${total.functions.covered}/${total.functions.total}) |
-| **Lines** | ${formatPercent(total.lines)} (${total.lines.covered}/${total.lines.total}) |
-
-**Coverage Threshold**: 70% (Target: 80%)
-
-${total.statements.pct < 70 ? '⚠️ **Warning**: Coverage is below the threshold!' : ''}
-`;
+            const warning = total.statements.pct < 70 ? '\n⚠️ **Warning**: Coverage is below the threshold!' : '';
+            const comment = [
+              '## 📊 Frontend Test Coverage Report',
+              '',
+              '| Metric | Coverage |',
+              '|--------|----------|',
+              '| **Statements** | ' + formatPercent(total.statements) + ' (' + total.statements.covered + '/' + total.statements.total + ') |',
+              '| **Branches** | ' + formatPercent(total.branches) + ' (' + total.branches.covered + '/' + total.branches.total + ') |',
+              '| **Functions** | ' + formatPercent(total.functions) + ' (' + total.functions.covered + '/' + total.functions.total + ') |',
+              '| **Lines** | ' + formatPercent(total.lines) + ' (' + total.lines.covered + '/' + total.lines.total + ') |',
+              '',
+              '**Coverage Threshold**: 70% (Target: 80%)',
+              warning
+            ].join('\n');
 
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
@@ -119,6 +118,7 @@ ${total.statements.pct < 70 ? '⚠️ **Warning**: Coverage is below the thresho
 
       # Step 8: Build application
       - name: Build
+        working-directory: frontend
         run: npm run build
         env:
           CI: true

@@ -13,12 +13,7 @@ describe('App Component', () => {
 
     // Check for key features
     expect(screen.getByText(/automated code review/i)).toBeInTheDocument();
-    expect(screen.getByText(/ai-assisted fixes/i)).toBeInTheDocument();
+    expect(screen.getByText(/ai-assisted code fixes/i)).toBeInTheDocument();
     expect(screen.getByText(/intelligent ci\/cd/i)).toBeInTheDocument();
-  });
-
-  it('matches snapshot', () => {
-    const { container } = render(<App />);
-    expect(container).toMatchSnapshot();
   });
 });

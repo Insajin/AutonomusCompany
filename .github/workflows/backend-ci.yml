@@ -25,11 +25,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
-    # Working directory for all steps
-    defaults:
-      run:
-        working-directory: backend
-
     steps:
       # Step 1: Checkout code
       - name: Checkout code
@@ -42,7 +37,7 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
+          cache-dependency-path: package-lock.json
 
       # Alternative: Setup Python with caching (for Python backend)
       - name: Setup Python
@@ -52,7 +47,7 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      # Step 3: Install dependencies (Node.js)
+      # Step 3: Install all workspace dependencies from root
       - name: Install Node.js dependencies
         if: hashFiles('backend/package.json') != ''
         run: npm ci
@@ -65,12 +60,14 @@ jobs:
       # Step 4: Run linter (Node.js)
       - name: Lint code (Node.js)
         if: hashFiles('backend/package.json') != ''
+        working-directory: backend
         run: npm run lint
         continue-on-error: false
 
       # Alternative: Run linter (Python)
       - name: Lint code (Python)
         if: hashFiles('backend/requirements.txt') != ''
+        working-directory: backend
         run: |
           pip install flake8
           flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
@@ -79,6 +76,7 @@ jobs:
       # Step 5: Run tests (Node.js)
       - name: Run tests (Node.js)
         if: hashFiles('backend/package.json') != ''
+        working-directory: backend
         run: npm test -- --coverage --ci
         env:
           CI: true
@@ -86,6 +84,7 @@ jobs:
       # Alternative: Run tests (Python)
       - name: Run tests (Python)
         if: hashFiles('backend/requirements.txt') != ''
+        working-directory: backend
         run: |
           pip install pytest pytest-cov
           pytest --cov=src --cov-report=xml --cov-report=html
@@ -106,6 +105,7 @@ jobs:
       # Step 7: Build (if applicable - Node.js)
       - name: Build (Node.js)
         if: hashFiles('backend/package.json') != ''
+        working-directory: backend
         run: npm run build || echo "No build step defined"
         env:
           CI: true
