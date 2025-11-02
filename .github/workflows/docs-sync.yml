@@ -69,7 +69,7 @@ jobs:
 
       - name: Create documentation PR
         if: steps.analyze.outputs.needs_update == 'true'
-        uses: peter-evans/create-pull-request@v5
+        uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: |
