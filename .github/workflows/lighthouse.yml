@@ -30,10 +30,10 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: cd .. && npm ci
 
       - name: Build application
         run: npm run build
@@ -55,24 +55,25 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const comment = `## ⚡ Lighthouse Performance Audit
-
-Performance audit completed! Check the detailed report for Core Web Vitals and optimization opportunities.
-
-**Note**: Full Lighthouse report available in workflow artifacts.
-
-**Performance Budget**:
-- Performance: ≥90
-- Accessibility: ≥90
-- Best Practices: ≥90
-- SEO: ≥90
-
-Review the artifacts for detailed metrics on:
-- 🎯 First Contentful Paint (FCP)
-- ⚡ Largest Contentful Paint (LCP)
-- 📊 Cumulative Layout Shift (CLS)
-- 🏃 Time to Interactive (TTI)
-`;
+            const comment = [
+              '## ⚡ Lighthouse Performance Audit',
+              '',
+              'Performance audit completed! Check the detailed report for Core Web Vitals and optimization opportunities.',
+              '',
+              '**Note**: Full Lighthouse report available in workflow artifacts.',
+              '',
+              '**Performance Budget**:',
+              '- Performance: ≥90',
+              '- Accessibility: ≥90',
+              '- Best Practices: ≥90',
+              '- SEO: ≥90',
+              '',
+              'Review the artifacts for detailed metrics on:',
+              '- 🎯 First Contentful Paint (FCP)',
+              '- ⚡ Largest Contentful Paint (LCP)',
+              '- 📊 Cumulative Layout Shift (CLS)',
+              '- 🏃 Time to Interactive (TTI)'
+            ].join('\n');
 
             await github.rest.issues.createComment({
               issue_number: context.issue.number,

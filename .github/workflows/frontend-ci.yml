@@ -91,22 +91,23 @@ jobs:
             const formatPercent = (metric) => {
               const pct = metric.pct || 0;
               const emoji = pct >= 80 ? '✅' : pct >= 70 ? '⚠️' : '❌';
-              return `${emoji} ${pct.toFixed(2)}%`;
+              return emoji + ' ' + pct.toFixed(2) + '%';
             };
 
-            const comment = `## 📊 Frontend Test Coverage Report
-
-| Metric | Coverage |
-|--------|----------|
-| **Statements** | ${formatPercent(total.statements)} (${total.statements.covered}/${total.statements.total}) |
-| **Branches** | ${formatPercent(total.branches)} (${total.branches.covered}/${total.branches.total}) |
-| **Functions** | ${formatPercent(total.functions)} (${total.functions.covered}/${total.functions.total}) |
-| **Lines** | ${formatPercent(total.lines)} (${total.lines.covered}/${total.lines.total}) |
-
-**Coverage Threshold**: 70% (Target: 80%)
-
-${total.statements.pct < 70 ? '⚠️ **Warning**: Coverage is below the threshold!' : ''}
-`;
+            const warning = total.statements.pct < 70 ? '\n⚠️ **Warning**: Coverage is below the threshold!' : '';
+            const comment = [
+              '## 📊 Frontend Test Coverage Report',
+              '',
+              '| Metric | Coverage |',
+              '|--------|----------|',
+              '| **Statements** | ' + formatPercent(total.statements) + ' (' + total.statements.covered + '/' + total.statements.total + ') |',
+              '| **Branches** | ' + formatPercent(total.branches) + ' (' + total.branches.covered + '/' + total.branches.total + ') |',
+              '| **Functions** | ' + formatPercent(total.functions) + ' (' + total.functions.covered + '/' + total.functions.total + ') |',
+              '| **Lines** | ' + formatPercent(total.lines) + ' (' + total.lines.covered + '/' + total.lines.total + ') |',
+              '',
+              '**Coverage Threshold**: 70% (Target: 80%)',
+              warning
+            ].join('\n');
 
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
