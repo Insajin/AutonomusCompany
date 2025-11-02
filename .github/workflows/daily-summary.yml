@@ -1,0 +1,227 @@
+name: Daily Summary
+
+on:
+  schedule:
+    # Run every day at 9:00 AM KST (00:00 UTC)
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  issues: write
+  pull-requests: read
+  contents: read
+
+jobs:
+  daily-summary:
+    name: Generate Daily Summary
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Gather daily metrics
+        id: metrics
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+
+            const yesterdayISO = yesterday.toISOString();
+
+            // Get PRs awaiting review
+            const openPRs = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100
+            });
+
+            const awaitingReview = openPRs.data.filter(pr =>
+              !pr.draft &&
+              pr.requested_reviewers.length > 0 &&
+              pr.reviews_count === 0
+            );
+
+            // Get new issues created yesterday
+            const newIssues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              since: yesterdayISO,
+              per_page: 100
+            });
+
+            const actualNewIssues = newIssues.data.filter(i => !i.pull_request);
+
+            // Get failed CI runs
+            const workflows = await github.rest.actions.listWorkflowRunsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              status: 'failure',
+              created: `>=${yesterdayISO}`,
+              per_page: 20
+            });
+
+            const failedRuns = workflows.data.workflow_runs;
+
+            // Get merged PRs yesterday
+            const mergedPRs = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'closed',
+              sort: 'updated',
+              direction: 'desc',
+              per_page: 100
+            });
+
+            const mergedYesterday = mergedPRs.data.filter(pr =>
+              pr.merged_at &&
+              new Date(pr.merged_at) >= yesterday &&
+              new Date(pr.merged_at) < today
+            );
+
+            core.setOutput('awaiting_review_count', awaitingReview.length);
+            core.setOutput('new_issues_count', actualNewIssues.length);
+            core.setOutput('failed_ci_count', failedRuns.length);
+            core.setOutput('merged_count', mergedYesterday.length);
+
+            return {
+              awaitingReview: awaitingReview.slice(0, 10),
+              newIssues: actualNewIssues.slice(0, 10),
+              failedRuns: failedRuns.slice(0, 5),
+              mergedPRs: mergedYesterday.slice(0, 10)
+            };
+
+      - name: Create daily summary issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const awaitingCount = parseInt('${{ steps.metrics.outputs.awaiting_review_count }}');
+            const newIssuesCount = parseInt('${{ steps.metrics.outputs.new_issues_count }}');
+            const failedCICount = parseInt('${{ steps.metrics.outputs.failed_ci_count }}');
+            const mergedCount = parseInt('${{ steps.metrics.outputs.merged_count }}');
+
+            const today = new Date().toISOString().split('T')[0];
+
+            // Get the data from previous step
+            const metricsData = ${{ steps.metrics.outputs.result }};
+
+            const body = [
+              `# 📊 Daily Summary - ${today}`,
+              '',
+              '## Quick Stats',
+              `- 🔍 **PRs Awaiting Review**: ${awaitingCount}`,
+              `- 📝 **New Issues**: ${newIssuesCount}`,
+              `- ✅ **Merged PRs**: ${mergedCount}`,
+              `- ❌ **Failed CI**: ${failedCICount}`,
+              ''
+            ];
+
+            // PRs awaiting review
+            if (awaitingCount > 0) {
+              body.push('## 👀 PRs Awaiting Review');
+              body.push('');
+              metricsData.awaitingReview.forEach(pr => {
+                const age = Math.floor((Date.now() - new Date(pr.created_at)) / (1000 * 60 * 60 * 24));
+                body.push(`- #${pr.number}: ${pr.title} (@${pr.user.login}) - ${age} days old`);
+              });
+              body.push('');
+            }
+
+            // New issues
+            if (newIssuesCount > 0) {
+              body.push('## 🆕 New Issues');
+              body.push('');
+              metricsData.newIssues.forEach(issue => {
+                const labels = issue.labels.map(l => l.name).join(', ');
+                body.push(`- #${issue.number}: ${issue.title} [${labels}]`);
+              });
+              body.push('');
+            }
+
+            // Merged PRs
+            if (mergedCount > 0) {
+              body.push('## ✅ Merged PRs (Yesterday)');
+              body.push('');
+              metricsData.mergedPRs.forEach(pr => {
+                body.push(`- #${pr.number}: ${pr.title} by @${pr.user.login}`);
+              });
+              body.push('');
+            }
+
+            // Failed CI
+            if (failedCICount > 0) {
+              body.push('## ❌ Failed CI Runs');
+              body.push('');
+              metricsData.failedRuns.forEach(run => {
+                body.push(`- [${run.name}](${run.html_url}) - ${run.head_commit?.message || 'No message'}`);
+              });
+              body.push('');
+              body.push('**Action required**: Investigate and fix failing workflows');
+              body.push('');
+            }
+
+            // Action items
+            body.push('## 📋 Action Items');
+            body.push('');
+            if (awaitingCount > 0) {
+              body.push(`- [ ] Review ${awaitingCount} pending PR(s)`);
+            }
+            if (newIssuesCount > 0) {
+              body.push(`- [ ] Triage ${newIssuesCount} new issue(s)`);
+            }
+            if (failedCICount > 0) {
+              body.push(`- [ ] Fix ${failedCICount} failing CI run(s)`);
+            }
+            if (awaitingCount === 0 && newIssuesCount === 0 && failedCICount === 0) {
+              body.push('- ✨ All clear! No pending actions.');
+            }
+            body.push('');
+
+            body.push('---');
+            body.push('🤖 Generated automatically by Daily Summary workflow');
+            body.push('');
+            body.push('_This issue will be automatically closed at the end of the day._');
+
+            // Create the issue
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `📊 Daily Summary - ${today}`,
+              body: body.join('\n'),
+              labels: ['daily-summary', 'automated', 'internal']
+            });
+
+            console.log(`Created daily summary issue #${issue.data.number}`);
+
+      - name: Close yesterday's summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'daily-summary',
+              per_page: 100
+            });
+
+            const yesterdaySummary = issues.data.find(i =>
+              i.title.includes(yesterdayStr)
+            );
+
+            if (yesterdaySummary) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: yesterdaySummary.number,
+                state: 'closed'
+              });
+              console.log(`Closed yesterday's summary #${yesterdaySummary.number}`);
+            }

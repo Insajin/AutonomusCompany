@@ -1,0 +1,168 @@
+name: Stale Issue and PR Management
+
+on:
+  schedule:
+    # Run daily at 1:00 AM UTC (10:00 AM KST)
+    - cron: '0 1 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    name: Mark Stale Issues and PRs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Mark stale issues and PRs
+        uses: actions/stale@v9
+        with:
+          # Stale configuration (conservative approach)
+          days-before-stale: 60
+          days-before-close: -1  # Never auto-close (manual close only)
+
+          # Issue configuration
+          stale-issue-message: |
+            👋 **This issue has been automatically marked as stale**
+
+            This issue has had no activity for 60 days and will be labeled as `stale`.
+
+            **If this issue is still relevant**:
+            - Comment on this issue to remove the stale label
+            - Continue working on it
+            - Update the description with current status
+
+            **If this issue is no longer relevant**:
+            - Close it manually
+            - Explain why it's being closed
+
+            Thank you for your contributions! 🙏
+
+          stale-issue-label: 'stale'
+
+          # PR configuration
+          stale-pr-message: |
+            👋 **This pull request has been automatically marked as stale**
+
+            This PR has had no activity for 60 days and will be labeled as `stale`.
+
+            **If this PR is still relevant**:
+            - Comment on this PR to remove the stale label
+            - Rebase with the latest main branch
+            - Address any review comments
+            - Request review again
+
+            **If this PR is no longer relevant**:
+            - Close it manually
+            - Explain why it's being closed
+
+            Thank you for your contributions! 🙏
+
+          stale-pr-label: 'stale'
+
+          # Exempt certain labels from being marked as stale
+          exempt-issue-labels: 'priority/critical,priority/high,security,pinned,good-first-issue,help-wanted,on-hold,in-progress,blocked'
+          exempt-pr-labels: 'priority/critical,priority/high,security,pinned,wip,in-review,blocked'
+
+          # Exempt all milestones from stale bot
+          exempt-all-milestones: true
+
+          # Exempt assignees
+          exempt-assignees: true
+
+          # Exempt drafts
+          exempt-draft-pr: true
+
+          # Operations per run
+          operations-per-run: 100
+
+          # Remove stale label when commented
+          remove-stale-when-updated: true
+
+          # Labels to add when close (not used since auto-close is disabled)
+          # close-issue-label: 'closed/stale'
+          # close-pr-label: 'closed/stale'
+
+          # Ascending order (oldest first)
+          ascending: true
+
+          # Enable debug logging
+          debug-only: false
+
+  report-stale:
+    name: Report Stale Statistics
+    runs-on: ubuntu-latest
+    needs: stale
+    timeout-minutes: 5
+
+    steps:
+      - name: Generate stale report
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Get all stale issues
+            const staleIssues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'stale',
+              state: 'open',
+              per_page: 100
+            });
+
+            const issues = staleIssues.data.filter(i => !i.pull_request);
+            const prs = staleIssues.data.filter(i => i.pull_request);
+
+            console.log(`Found ${issues.length} stale issues and ${prs.length} stale PRs`);
+
+            // Create a summary
+            const summary = [
+              '## 📊 Stale Items Report',
+              '',
+              `**Total stale issues**: ${issues.length}`,
+              `**Total stale PRs**: ${prs.length}`,
+              '',
+              '**Action required**: Review and close stale items that are no longer relevant.',
+              ''
+            ];
+
+            if (issues.length > 0) {
+              summary.push('### Stale Issues:');
+              issues.slice(0, 10).forEach(issue => {
+                summary.push(`- #${issue.number}: ${issue.title}`);
+              });
+              if (issues.length > 10) {
+                summary.push(`- ... and ${issues.length - 10} more`);
+              }
+              summary.push('');
+            }
+
+            if (prs.length > 0) {
+              summary.push('### Stale PRs:');
+              prs.slice(0, 10).forEach(pr => {
+                summary.push(`- #${pr.number}: ${pr.title}`);
+              });
+              if (prs.length > 10) {
+                summary.push(`- ... and ${prs.length - 10} more`);
+              }
+              summary.push('');
+            }
+
+            console.log(summary.join('\n'));
+
+            // Optionally create an issue for review (weekly)
+            const today = new Date();
+            const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+
+            if (dayOfWeek === 1 && (issues.length > 0 || prs.length > 0)) {
+              // Create issue on Mondays if there are stale items
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `Weekly Stale Items Review - ${today.toISOString().split('T')[0]}`,
+                body: summary.join('\n'),
+                labels: ['internal', 'documentation', 'automated']
+              });
+            }

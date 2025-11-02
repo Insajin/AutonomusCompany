@@ -1,0 +1,222 @@
+name: Sprint Automation
+
+on:
+  schedule:
+    # Run every Monday at 9:00 AM KST (00:00 UTC)
+    - cron: '0 0 * * 1'
+  workflow_dispatch: # Allow manual trigger
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        type: choice
+        options:
+          - 'start-sprint'
+          - 'end-sprint'
+          - 'create-milestone'
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  manage-sprint:
+    name: Manage Sprint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Determine action
+        id: action
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "action=${{ github.event.inputs.action }}" >> $GITHUB_OUTPUT
+          else
+            # Check if it's time to start a new sprint (every 2 weeks on Monday)
+            week_number=$(date +%V)
+            if [ $((week_number % 2)) -eq 0 ]; then
+              echo "action=start-sprint" >> $GITHUB_OUTPUT
+            else
+              echo "action=none" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Get current sprint info
+        id: sprint
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Get all milestones
+            const milestones = await github.rest.issues.listMilestones({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              sort: 'due_on',
+              direction: 'desc'
+            });
+
+            const activeSprint = milestones.data.find(m => m.title.includes('Sprint'));
+            core.setOutput('has_active_sprint', activeSprint ? 'true' : 'false');
+
+            if (activeSprint) {
+              core.setOutput('sprint_number', activeSprint.title.match(/\d+/)?.[0] || '1');
+              core.setOutput('sprint_title', activeSprint.title);
+              core.setOutput('sprint_id', activeSprint.number);
+            }
+
+            return activeSprint;
+
+      - name: Create new sprint milestone
+        if: steps.action.outputs.action == 'start-sprint' || github.event.inputs.action == 'create-milestone'
+        id: create_sprint
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const currentSprintNumber = parseInt('${{ steps.sprint.outputs.sprint_number }}' || '0');
+            const nextSprintNumber = currentSprintNumber + 1;
+
+            // Calculate sprint dates (2 weeks)
+            const today = new Date();
+            const startDate = new Date(today);
+            startDate.setHours(0, 0, 0, 0);
+
+            const endDate = new Date(startDate);
+            endDate.setDate(endDate.getDate() + 13); // 2 weeks minus 1 day
+            endDate.setHours(23, 59, 59, 999);
+
+            const sprint = await github.rest.issues.createMilestone({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Sprint ${nextSprintNumber}`,
+              description: `Sprint ${nextSprintNumber}: ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`,
+              due_on: endDate.toISOString(),
+              state: 'open'
+            });
+
+            console.log(`Created Sprint ${nextSprintNumber}`);
+            core.setOutput('sprint_number', nextSprintNumber);
+            core.setOutput('sprint_title', sprint.data.title);
+            core.setOutput('start_date', startDate.toISOString().split('T')[0]);
+            core.setOutput('end_date', endDate.toISOString().split('T')[0]);
+
+            return sprint.data;
+
+      - name: Create sprint start issue
+        if: steps.create_sprint.outputs.sprint_number
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const sprintNumber = '${{ steps.create_sprint.outputs.sprint_number }}';
+            const startDate = '${{ steps.create_sprint.outputs.start_date }}';
+            const endDate = '${{ steps.create_sprint.outputs.end_date }}';
+
+            const body = [
+              `## 🚀 Sprint ${sprintNumber} Kickoff`,
+              '',
+              `**Duration**: ${startDate} to ${endDate} (2 weeks)`,
+              '',
+              '### Sprint Goals',
+              '- [ ] Goal 1: _To be defined by team_',
+              '- [ ] Goal 2: _To be defined by team_',
+              '- [ ] Goal 3: _To be defined by team_',
+              '',
+              '### Sprint Planning',
+              '- **Sprint Planning Meeting**: _Schedule a meeting_',
+              '- **Daily Standups**: _Set time and format_',
+              '- **Sprint Review**: _Schedule for last day_',
+              '- **Sprint Retrospective**: _Schedule after review_',
+              '',
+              '### Backlog',
+              'Issues assigned to this sprint will appear here.',
+              '',
+              '### Notes',
+              '_Add any sprint-specific notes or focus areas_',
+              '',
+              '---',
+              `🤖 Automatically created by Sprint Automation workflow`
+            ].join('\n');
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Sprint ${sprintNumber} Planning`,
+              body: body,
+              labels: ['sprint', 'planning', 'automated'],
+              milestone: parseInt('${{ steps.create_sprint.outputs.sprint_number }}')
+            });
+
+      - name: Close previous sprint
+        if: steps.action.outputs.action == 'end-sprint' && steps.sprint.outputs.has_active_sprint == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const sprintId = parseInt('${{ steps.sprint.outputs.sprint_id }}');
+            const sprintTitle = '${{ steps.sprint.outputs.sprint_title }}';
+
+            // Get sprint statistics
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              milestone: sprintId,
+              state: 'all',
+              per_page: 100
+            });
+
+            const totalIssues = issues.data.length;
+            const closedIssues = issues.data.filter(i => i.state === 'closed').length;
+            const openIssues = totalIssues - closedIssues;
+            const completionRate = totalIssues > 0 ? ((closedIssues / totalIssues) * 100).toFixed(1) : 0;
+
+            // Create sprint retrospective issue
+            const body = [
+              `## 📊 ${sprintTitle} Summary`,
+              '',
+              '### Statistics',
+              `- **Total Issues**: ${totalIssues}`,
+              `- **Completed**: ${closedIssues} ✅`,
+              `- **Not Completed**: ${openIssues} ⏸️`,
+              `- **Completion Rate**: ${completionRate}%`,
+              '',
+              '### What Went Well',
+              '- ',
+              '',
+              '### What Could Be Improved',
+              '- ',
+              '',
+              '### Action Items for Next Sprint',
+              '- [ ] ',
+              '',
+              '### Uncompleted Issues',
+              openIssues > 0 ? 'The following issues were not completed:' : 'All issues completed! 🎉',
+              ''
+            ];
+
+            if (openIssues > 0) {
+              const openItems = issues.data.filter(i => i.state === 'open');
+              openItems.forEach(issue => {
+                body.push(`- #${issue.number}: ${issue.title}`);
+              });
+              body.push('');
+              body.push('**Action**: Move unfinished issues to next sprint or backlog');
+            }
+
+            body.push('---');
+            body.push('🤖 Automatically generated by Sprint Automation workflow');
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `${sprintTitle} Retrospective`,
+              body: body.join('\n'),
+              labels: ['sprint', 'retrospective', 'automated']
+            });
+
+            // Close the milestone
+            await github.rest.issues.updateMilestone({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              milestone_number: sprintId,
+              state: 'closed'
+            });
+
+            console.log(`Closed ${sprintTitle} with ${completionRate}% completion rate`);

@@ -1,0 +1,139 @@
+name: Project Board Automation
+
+on:
+  issues:
+    types: [opened, closed, reopened]
+  pull_request:
+    types: [opened, closed, reopened, ready_for_review, converted_to_draft]
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+  repository-projects: write
+
+jobs:
+  update-project:
+    name: Update Project Board
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Add new issues to project
+        if: github.event_name == 'issues' && github.event.action == 'opened'
+        uses: actions/add-to-project@v0.5.0
+        with:
+          project-url: https://github.com/orgs/${{ github.repository_owner }}/projects/1
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add new PRs to project
+        if: github.event_name == 'pull_request' && github.event.action == 'opened'
+        uses: actions/add-to-project@v0.5.0
+        with:
+          project-url: https://github.com/orgs/${{ github.repository_owner }}/projects/1
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update PR status
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_review'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+            if (!pr) return;
+
+            let status = '';
+            let statusEmoji = '';
+
+            // Determine status based on PR state and event
+            if (pr.draft) {
+              status = '📝 Draft';
+              statusEmoji = '📝';
+            } else if (pr.merged) {
+              status = '✅ Done';
+              statusEmoji = '✅';
+            } else if (pr.closed) {
+              status = '🚫 Closed';
+              statusEmoji = '🚫';
+            } else if (context.payload.review?.state === 'approved') {
+              status = '👍 Approved';
+              statusEmoji = '👍';
+            } else if (context.payload.review?.state === 'changes_requested') {
+              status = '🔄 Changes Requested';
+              statusEmoji = '🔄';
+            } else if (pr.requested_reviewers && pr.requested_reviewers.length > 0) {
+              status = '👀 In Review';
+              statusEmoji = '👀';
+            } else {
+              status = '🚧 In Progress';
+              statusEmoji = '🚧';
+            }
+
+            console.log(`PR #${pr.number} status: ${status}`);
+
+            // Note: To actually update the project board, you would need to use the GitHub Projects API
+            // This requires additional setup with a Project PAT token
+            // See: https://docs.github.com/en/issues/planning-and-tracking-with-projects/automating-your-project/using-the-api-to-manage-projects
+
+      - name: Update issue status on close
+        if: github.event_name == 'issues' && github.event.action == 'closed'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issue = context.payload.issue;
+            console.log(`Issue #${issue.number} closed`);
+
+            // Add "Done" label
+            await github.rest.issues.addLabels({
+              issue_number: issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['status/done']
+            });
+
+      - name: Update issue status on reopen
+        if: github.event_name == 'issues' && github.event.action == 'reopened'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issue = context.payload.issue;
+            console.log(`Issue #${issue.number} reopened`);
+
+            // Remove "Done" label and add "In Progress"
+            try {
+              await github.rest.issues.removeLabel({
+                issue_number: issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: 'status/done'
+              });
+            } catch (error) {
+              console.log('Done label not found');
+            }
+
+            await github.rest.issues.addLabels({
+              issue_number: issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['status/in-progress']
+            });
+
+      - name: Comment on project addition
+        if: (github.event_name == 'issues' || github.event_name == 'pull_request') && github.event.action == 'opened'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const isIssue = context.eventName === 'issues';
+            const number = isIssue ? context.issue.number : context.payload.pull_request.number;
+            const type = isIssue ? 'issue' : 'PR';
+
+            await github.rest.issues.createComment({
+              issue_number: number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🎯 This ${type} has been added to the project board.\n\n**Next steps**:\n${isIssue ? '- Review and triage\n- Assign to sprint\n- Start work' : '- Request review\n- Address feedback\n- Merge when approved'}`
+            });

@@ -1,29 +1,75 @@
 # CODEOWNERS
-# Define individuals or teams responsible for code in this repository
-# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# This file defines who owns different parts of the codebase.
+# Code owners are automatically requested for review when someone
+# opens a pull request that modifies code that they own.
+#
+# Learn more: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
-# Default owners for everything in the repo
-# *       @your-username-or-team
+# Global owners (fallback for everything not specified)
+* @Insajin
 
-# GitHub Actions workflows
-/.github/workflows/    @your-username-or-team
+# Frontend
+/frontend/ @Insajin
+/frontend/src/components/ @Insajin
+/frontend/src/pages/ @Insajin
+/frontend/src/lib/ @Insajin
 
-# Frontend code
-/frontend/             @frontend-team
+# Backend
+/backend/ @Insajin
+/backend/src/api/ @Insajin
+/backend/src/domain/ @Insajin
+/backend/src/repository/ @Insajin
 
-# Backend code
-/backend/              @backend-team
-
-# Documentation
-/docs/                 @docs-team
-*.md                   @docs-team
+# CI/CD and GitHub Actions
+/.github/workflows/ @Insajin
+/.github/actions/ @Insajin
+/scripts/ @Insajin
 
 # Configuration files
-/.github/              @devops-team
-/scripts/              @devops-team
-*.yml                  @devops-team
-*.json                 @devops-team
+*.yml @Insajin
+*.yaml @Insajin
+*.json @Insajin
+.env.example @Insajin
+Dockerfile @Insajin
+docker-compose.yml @Insajin
 
-# Security-sensitive files
-/.env.example          @security-team
-/.github/workflows/    @security-team
+# Documentation
+/docs/ @Insajin
+*.md @Insajin
+README.md @Insajin
+CLAUDE.md @Insajin
+
+# Database
+/migrations/ @Insajin
+/backend/src/repository/ @Insajin
+**/schema/ @Insajin
+
+# Tests
+**/*.test.* @Insajin
+**/*.spec.* @Insajin
+/tests/ @Insajin
+
+# Security-sensitive files (require extra review)
+/backend/src/api/middleware/auth* @Insajin
+/backend/src/config/security* @Insajin
+/.github/workflows/*security* @Insajin
+/.github/workflows/*codeql* @Insajin
+
+# Package dependencies (require careful review)
+package.json @Insajin
+package-lock.json @Insajin
+go.mod @Insajin
+go.sum @Insajin
+requirements.txt @Insajin
+
+# Build and deployment
+/frontend/.next/ @Insajin
+/backend/dist/ @Insajin
+/backend/build/ @Insajin
+
+# Note: Add more team members as the project grows
+# Example:
+# /frontend/ @frontend-team
+# /backend/ @backend-team
+# /docs/ @documentation-team

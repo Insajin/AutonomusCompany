@@ -1,0 +1,127 @@
+name: Documentation Improvement
+description: Suggest improvements to documentation
+title: "[Docs]: "
+labels: ["documentation", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve our documentation!
+
+  - type: dropdown
+    id: doc-type
+    attributes:
+      label: Documentation Type
+      description: What type of documentation needs improvement?
+      options:
+        - README
+        - API Documentation
+        - User Guide
+        - Developer Guide
+        - Code Comments
+        - Configuration Guide
+        - Troubleshooting Guide
+        - Architecture Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: location
+    attributes:
+      label: Documentation Location
+      description: Where is the documentation that needs improvement?
+      placeholder: |
+        File path: docs/api/authentication.md
+        Section: "OAuth2 Flow"
+        Line: 42-55
+    validations:
+      required: true
+
+  - type: textarea
+    id: issue
+    attributes:
+      label: What's Wrong?
+      description: What is incorrect, missing, or unclear in the current documentation?
+      placeholder: |
+        - Outdated information
+        - Missing examples
+        - Confusing explanation
+        - Broken links
+        - Typos
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested Improvement
+      description: How would you improve this documentation?
+      placeholder: |
+        - Add code examples
+        - Update screenshots
+        - Clarify steps
+        - Add troubleshooting section
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-content
+    attributes:
+      label: Proposed Content
+      description: If you have specific content to suggest, please provide it here
+      placeholder: |
+        Here's the updated text:
+
+        ```markdown
+        ## Authentication
+
+        Our API uses OAuth2 for authentication...
+        ```
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this documentation improvement?
+      options:
+        - Critical (blocks users)
+        - High (causes confusion)
+        - Medium (minor improvement)
+        - Low (nice-to-have)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: willing-to-contribute
+    attributes:
+      label: Willing to Contribute
+      description: Can you help improve this documentation?
+      options:
+        - "Yes, I can submit a PR"
+        - "Yes, but I need guidance"
+        - "No"
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other information about this documentation improvement
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission Checklist
+      options:
+        - label: I have checked for existing documentation issues
+          required: true
+        - label: I have verified this is a documentation issue (not a code bug)
+          required: true

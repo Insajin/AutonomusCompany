@@ -1,0 +1,141 @@
+name: Auto Label Issues
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  label-issue:
+    name: Auto Label Issue
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Analyze issue content
+        id: analyze
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const title = issue.title.toLowerCase();
+            const body = (issue.body || '').toLowerCase();
+            const content = title + ' ' + body;
+
+            const labels = new Set();
+
+            // Area detection
+            if (content.includes('frontend') || content.includes('ui') || content.includes('component') || content.includes('react') || content.includes('next')) {
+              labels.add('area/frontend');
+            }
+            if (content.includes('backend') || content.includes('api') || content.includes('server') || content.includes('database') || content.includes('go')) {
+              labels.add('area/backend');
+            }
+            if (content.includes('ci') || content.includes('workflow') || content.includes('action') || content.includes('deploy')) {
+              labels.add('area/ci');
+            }
+            if (content.includes('doc') || content.includes('readme') || content.includes('guide')) {
+              labels.add('area/documentation');
+            }
+
+            // Priority detection
+            if (content.includes('critical') || content.includes('urgent') || content.includes('blocker') || content.includes('production down')) {
+              labels.add('priority/critical');
+            } else if (content.includes('high priority') || content.includes('important') || content.includes('asap')) {
+              labels.add('priority/high');
+            } else if (content.includes('low priority') || content.includes('nice to have') || content.includes('minor')) {
+              labels.add('priority/low');
+            } else {
+              labels.add('priority/medium');
+            }
+
+            // Type detection (if not already labeled by template)
+            const existingLabels = issue.labels.map(l => l.name);
+            const hasBugLabel = existingLabels.includes('bug');
+            const hasEnhancementLabel = existingLabels.includes('enhancement');
+            const hasDocLabel = existingLabels.includes('documentation');
+
+            if (!hasBugLabel && !hasEnhancementLabel && !hasDocLabel) {
+              if (content.includes('error') || content.includes('crash') || content.includes('fail') || content.includes('broken')) {
+                labels.add('bug');
+              } else if (content.includes('feature') || content.includes('add') || content.includes('implement')) {
+                labels.add('enhancement');
+              }
+            }
+
+            // Security detection
+            if (content.includes('security') || content.includes('vulnerability') || content.includes('cve') || content.includes('exploit')) {
+              labels.add('security');
+              labels.add('priority/critical');
+            }
+
+            // Performance detection
+            if (content.includes('performance') || content.includes('slow') || content.includes('speed') || content.includes('optimize')) {
+              labels.add('performance');
+            }
+
+            // Accessibility detection
+            if (content.includes('accessibility') || content.includes('a11y') || content.includes('wcag') || content.includes('screen reader')) {
+              labels.add('accessibility');
+            }
+
+            // Testing detection
+            if (content.includes('test') || content.includes('coverage') || content.includes('jest') || content.includes('pytest')) {
+              labels.add('testing');
+            }
+
+            // Dependencies detection
+            if (content.includes('dependency') || content.includes('package') || content.includes('npm') || content.includes('go mod')) {
+              labels.add('dependencies');
+            }
+
+            core.setOutput('labels', Array.from(labels).join(','));
+            return Array.from(labels);
+
+      - name: Apply labels
+        if: steps.analyze.outputs.labels != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = '${{ steps.analyze.outputs.labels }}'.split(',').filter(l => l);
+
+            if (labels.length === 0) {
+              console.log('No labels to apply');
+              return;
+            }
+
+            console.log('Applying labels:', labels);
+
+            await github.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: labels
+            });
+
+      - name: Post comment for critical issues
+        if: contains(steps.analyze.outputs.labels, 'priority/critical')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '⚠️ **Critical Priority Issue**\n\nThis issue has been automatically labeled as `priority/critical`. The team will be notified immediately.\n\n**Expected response time**: Within 24 hours\n\nIf this is a security vulnerability, please also email security@example.com with details.'
+            });
+
+      - name: Post comment for security issues
+        if: contains(steps.analyze.outputs.labels, 'security')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '🔒 **Security Issue Detected**\n\nThis issue has been automatically labeled as `security`.\n\n**Important**:\n- Do not share sensitive information (passwords, tokens, keys) in this issue\n- For responsible disclosure, please email security@example.com\n- The security team will review this issue within 24 hours\n\n**Next steps**:\n1. Security team review\n2. Risk assessment\n3. Fix implementation\n4. Security advisory (if applicable)'
+            });

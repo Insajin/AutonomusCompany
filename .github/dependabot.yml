@@ -1,59 +1,161 @@
 # Dependabot Configuration
 # Automatically creates PRs for dependency updates
+# Full automation: Security/patch auto-merge, minor auto-PR, major requires review
 
 version: 2
+
 updates:
+  # Root package dependencies (npm)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "daily"  # Daily for security updates
+      time: "03:00"
+      timezone: "Asia/Seoul"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "Insajin"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "automerge"  # Auto-merge for patch/security
+    versioning-strategy: increase
+    # Group patch updates together
+    groups:
+      patch-updates:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+
   # Frontend dependencies (npm)
   - package-ecosystem: "npm"
     directory: "/frontend"
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 5
-    versioning-strategy: "increase"
+      interval: "daily"
+      time: "03:00"
+      timezone: "Asia/Seoul"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "Insajin"
     commit-message:
-      prefix: "chore(frontend)"
+      prefix: "chore(deps-frontend)"
       include: "scope"
     labels:
       - "dependencies"
-      - "frontend"
-      - "automated"
-    # Ignore major version updates for these packages
+      - "area/frontend"
+      - "automerge"
+    versioning-strategy: increase
+    # Group patch updates
+    groups:
+      frontend-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+      frontend-minor:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+    # Don't auto-merge major framework updates
     ignore:
       - dependency-name: "react"
         update-types: ["version-update:semver-major"]
       - dependency-name: "next"
         update-types: ["version-update:semver-major"]
 
-  # Backend dependencies (npm)
+  # Backend dependencies (npm/go)
   - package-ecosystem: "npm"
     directory: "/backend"
     schedule:
-      interval: "weekly"
-      day: "tuesday"
-      time: "09:00"
-    open-pull-requests-limit: 5
-    versioning-strategy: "increase"
+      interval: "daily"
+      time: "03:00"
+      timezone: "Asia/Seoul"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "Insajin"
     commit-message:
-      prefix: "chore(backend)"
+      prefix: "chore(deps-backend)"
       include: "scope"
     labels:
       - "dependencies"
-      - "backend"
-      - "automated"
+      - "area/backend"
+      - "automerge"
+    versioning-strategy: increase
+    groups:
+      backend-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+      backend-minor:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+
+  # Go modules (if using Go backend)
+  - package-ecosystem: "gomod"
+    directory: "/backend"
+    schedule:
+      interval: "daily"
+      time: "03:00"
+      timezone: "Asia/Seoul"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "Insajin"
+    commit-message:
+      prefix: "chore(deps-go)"
+    labels:
+      - "dependencies"
+      - "area/backend"
+      - "automerge"
+    groups:
+      go-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
 
   # GitHub Actions workflows
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "wednesday"
-      time: "09:00"
-    open-pull-requests-limit: 3
+      interval: "weekly"  # Weekly for actions to reduce noise
+      day: "monday"
+      time: "03:00"
+      timezone: "Asia/Seoul"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "Insajin"
     commit-message:
-      prefix: "chore(ci)"
+      prefix: "chore(deps-actions)"
     labels:
       - "dependencies"
-      - "ci"
-      - "automated"
+      - "area/ci"
+      - "automerge"
+
+  # Docker dependencies
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+      timezone: "Asia/Seoul"
+    reviewers:
+      - "Insajin"
+    commit-message:
+      prefix: "chore(deps-docker)"
+    labels:
+      - "dependencies"
+      - "area/ci"
+
+# Auto-merge Strategy:
+# - Security updates: Auto-merge immediately when CI passes
+# - Patch updates: Auto-merge when CI passes (grouped)
+# - Minor updates: Create PR with automerge label, merge when CI passes
+# - Major updates: Create PR, requires manual review (no automerge label)

@@ -1,0 +1,203 @@
+name: Weekly Report
+
+on:
+  schedule:
+    # Run every Monday at 10:00 AM KST (01:00 UTC)
+    - cron: '0 1 * * 1'
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  issues: write
+  pull-requests: read
+  contents: read
+
+jobs:
+  weekly-report:
+    name: Generate Weekly Report
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Gather weekly metrics
+        id: metrics
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const today = new Date();
+            const oneWeekAgo = new Date(today);
+            oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+            const oneWeekAgoISO = oneWeekAgo.toISOString();
+
+            // Get merged PRs
+            const mergedPRs = await github.rest.search.issuesAndPullRequests({
+              q: `repo:${context.repo.owner}/${context.repo.repo} is:pr is:merged merged:>=${oneWeekAgoISO.split('T')[0]}`,
+              per_page: 100
+            });
+
+            // Get closed issues
+            const closedIssues = await github.rest.search.issuesAndPullRequests({
+              q: `repo:${context.repo.owner}/${context.repo.repo} is:issue is:closed closed:>=${oneWeekAgoISO.split('T')[0]}`,
+              per_page: 100
+            });
+
+            // Get new issues
+            const newIssues = await github.rest.search.issuesAndPullRequests({
+              q: `repo:${context.repo.owner}/${context.repo.repo} is:issue created:>=${oneWeekAgoISO.split('T')[0]}`,
+              per_page: 100
+            });
+
+            // Get contributors
+            const commits = await github.rest.repos.listCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              since: oneWeekAgoISO,
+              per_page: 100
+            });
+
+            const contributors = [...new Set(commits.data.map(c => c.author?.login).filter(Boolean))];
+
+            // Get open PRs
+            const openPRs = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100
+            });
+
+            // Get open issues
+            const openIssuesData = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100
+            });
+
+            const actualOpenIssues = openIssuesData.data.filter(i => !i.pull_request);
+
+            core.setOutput('merged_prs', mergedPRs.data.total_count);
+            core.setOutput('closed_issues', closedIssues.data.total_count);
+            core.setOutput('new_issues', newIssues.data.total_count);
+            core.setOutput('contributors', contributors.length);
+            core.setOutput('open_prs', openPRs.data.length);
+            core.setOutput('open_issues', actualOpenIssues.length);
+            core.setOutput('commits', commits.data.length);
+
+            return {
+              mergedPRs: mergedPRs.data.items.slice(0, 20),
+              closedIssues: closedIssues.data.items.slice(0, 10),
+              contributors: contributors.slice(0, 10),
+              topContributor: contributors[0] || 'N/A'
+            };
+
+      - name: Create weekly report issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const mergedPRs = parseInt('${{ steps.metrics.outputs.merged_prs }}');
+            const closedIssues = parseInt('${{ steps.metrics.outputs.closed_issues }}');
+            const newIssues = parseInt('${{ steps.metrics.outputs.new_issues }}');
+            const contributors = parseInt('${{ steps.metrics.outputs.contributors }}');
+            const openPRs = parseInt('${{ steps.metrics.outputs.open_prs }}');
+            const openIssues = parseInt('${{ steps.metrics.outputs.open_issues }}');
+            const commits = parseInt('${{ steps.metrics.outputs.commits }}');
+
+            const today = new Date();
+            const weekStart = new Date(today);
+            weekStart.setDate(weekStart.getDate() - 7);
+            const weekRange = `${weekStart.toISOString().split('T')[0]} to ${today.toISOString().split('T')[0]}`;
+
+            const metricsData = ${{ steps.metrics.outputs.result }};
+
+            const body = [
+              `# 📊 Weekly Report`,
+              `**Period**: ${weekRange}`,
+              '',
+              '## 📈 Activity Summary',
+              '',
+              '### Development Activity',
+              `- 📝 **Commits**: ${commits}`,
+              `- ✅ **Merged PRs**: ${mergedPRs}`,
+              `- 🎯 **Closed Issues**: ${closedIssues}`,
+              `- 🆕 **New Issues**: ${newIssues}`,
+              `- 👥 **Active Contributors**: ${contributors}`,
+              '',
+              '### Current Status',
+              `- 🔄 **Open PRs**: ${openPRs}`,
+              `- 📋 **Open Issues**: ${openIssues}`,
+              '',
+              `**Issue Completion Rate**: ${newIssues > 0 ? ((closedIssues / (newIssues + closedIssues)) * 100).toFixed(1) : 0}%`,
+              ''
+            ];
+
+            // Contributors
+            if (contributors > 0) {
+              body.push('## 👥 Top Contributors');
+              body.push('');
+              metricsData.contributors.forEach((contributor, index) => {
+                const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '  ';
+                body.push(`${medal} @${contributor}`);
+              });
+              body.push('');
+            }
+
+            // Merged PRs
+            if (mergedPRs > 0) {
+              body.push(`## ✅ Merged PRs (${mergedPRs})`);
+              body.push('');
+              metricsData.mergedPRs.forEach(pr => {
+                body.push(`- #${pr.number}: ${pr.title} by @${pr.user.login}`);
+              });
+              body.push('');
+            }
+
+            // Closed Issues
+            if (closedIssues > 0) {
+              body.push(`## 🎯 Closed Issues (${closedIssues})`);
+              body.push('');
+              metricsData.closedIssues.forEach(issue => {
+                const labels = issue.labels.map(l => l.name).join(', ');
+                body.push(`- #${issue.number}: ${issue.title} [${labels}]`);
+              });
+              body.push('');
+            }
+
+            // Health metrics
+            body.push('## 🏥 Repository Health');
+            body.push('');
+            body.push('| Metric | Value | Status |');
+            body.push('|--------|-------|--------|');
+            body.push(`| Open PR Count | ${openPRs} | ${openPRs < 10 ? '✅ Good' : openPRs < 20 ? '⚠️ Monitor' : '❌ High'} |`);
+            body.push(`| Open Issue Count | ${openIssues} | ${openIssues < 20 ? '✅ Good' : openIssues < 50 ? '⚠️ Monitor' : '❌ High'} |`);
+            body.push(`| Weekly Activity | ${commits} commits | ${commits > 10 ? '✅ Active' : commits > 5 ? '⚠️ Moderate' : '❌ Low'} |`);
+            body.push('');
+
+            // Recommendations
+            body.push('## 💡 Recommendations');
+            body.push('');
+            if (openPRs > 15) {
+              body.push('- ⚠️ High number of open PRs. Consider dedicating time for code reviews.');
+            }
+            if (openIssues > 40) {
+              body.push('- ⚠️ High number of open issues. Consider triaging and prioritizing.');
+            }
+            if (commits < 5) {
+              body.push('- ℹ️ Low activity this week. This might be expected for certain periods.');
+            }
+            if (openPRs < 5 && openIssues < 10 && commits > 20) {
+              body.push('- ✅ Great work! Repository is healthy and active.');
+            }
+            body.push('');
+
+            body.push('---');
+            body.push('🤖 Generated automatically by Weekly Report workflow');
+
+            // Create the issue
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `📊 Weekly Report - Week of ${weekStart.toISOString().split('T')[0]}`,
+              body: body.join('\n'),
+              labels: ['weekly-report', 'automated', 'internal']
+            });
+
+            console.log(`Created weekly report issue #${issue.data.number}`);

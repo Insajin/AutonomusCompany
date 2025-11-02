@@ -1,0 +1,138 @@
+name: Auto Assign Reviewers
+
+on:
+  pull_request:
+    types: [opened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  assign-reviewers:
+    name: Assign Reviewers
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Determine reviewers
+        id: reviewers
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const author = pr.user.login;
+            const reviewers = new Set();
+
+            // Get changed files
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+            });
+
+            const changedFiles = files.data.map(f => f.filename);
+
+            // Parse CODEOWNERS file if it exists
+            let codeowners = '';
+            try {
+              const codeownersFile = await github.rest.repos.getContent({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                path: '.github/CODEOWNERS',
+                ref: context.payload.pull_request.base.ref
+              });
+              codeowners = Buffer.from(codeownersFile.data.content, 'base64').toString();
+            } catch (error) {
+              console.log('CODEOWNERS file not found, using default logic');
+            }
+
+            // Parse CODEOWNERS and find matching owners
+            if (codeowners) {
+              const lines = codeowners.split('\n');
+              for (const line of lines) {
+                if (line.trim().startsWith('#') || !line.trim()) continue;
+
+                const parts = line.trim().split(/\s+/);
+                if (parts.length < 2) continue;
+
+                const pattern = parts[0];
+                const owners = parts.slice(1);
+
+                // Simple pattern matching
+                for (const file of changedFiles) {
+                  if (file.includes(pattern.replace('*', ''))) {
+                    owners.forEach(owner => {
+                      if (owner.startsWith('@') && owner.substring(1) !== author) {
+                        reviewers.add(owner.substring(1));
+                      }
+                    });
+                  }
+                }
+              }
+            }
+
+            // Fallback: assign based on file patterns
+            if (reviewers.size === 0) {
+              const hasFrontend = changedFiles.some(f => f.includes('frontend/'));
+              const hasBackend = changedFiles.some(f => f.includes('backend/'));
+              const hasCI = changedFiles.some(f => f.includes('.github/workflows/'));
+
+              // Add repository owner as default reviewer
+              // You can customize this logic based on your team structure
+              if (author !== 'Insajin') {
+                reviewers.add('Insajin');
+              }
+            }
+
+            const reviewersList = Array.from(reviewers);
+            core.setOutput('reviewers', reviewersList.join(','));
+            return reviewersList;
+
+      - name: Request reviewers
+        if: steps.reviewers.outputs.reviewers != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const reviewers = '${{ steps.reviewers.outputs.reviewers }}'.split(',').filter(r => r);
+
+            if (reviewers.length === 0) {
+              console.log('No reviewers to assign');
+              return;
+            }
+
+            console.log('Requesting review from:', reviewers);
+
+            try {
+              await github.rest.pulls.requestReviewers({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number,
+                reviewers: reviewers
+              });
+            } catch (error) {
+              console.error('Error requesting reviewers:', error.message);
+              // Don't fail the workflow if reviewer assignment fails
+            }
+
+      - name: Comment on reviewer assignment
+        if: steps.reviewers.outputs.reviewers != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const reviewers = '${{ steps.reviewers.outputs.reviewers }}'.split(',').filter(r => r);
+
+            if (reviewers.length === 0) return;
+
+            const reviewerMentions = reviewers.map(r => `@${r}`).join(', ');
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `👋 **Reviewers assigned**\n\n${reviewerMentions}, please review this PR.\n\n**Review checklist**:\n- [ ] Code quality and best practices\n- [ ] Functionality works as described\n- [ ] Tests are adequate\n- [ ] Documentation is updated\n- [ ] No security vulnerabilities\n- [ ] Performance is acceptable\n\nUse \`@claude apply\` to auto-apply suggested fixes.`
+            });

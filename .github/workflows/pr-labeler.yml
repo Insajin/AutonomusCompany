@@ -1,0 +1,197 @@
+name: PR Auto Labeler
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label-pr:
+    name: Auto Label PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Analyze PR
+        id: analyze
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const labels = new Set();
+
+            // Get PR diff stats
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+            });
+
+            const changedFiles = files.data;
+            const additions = pr.additions;
+            const deletions = pr.deletions;
+            const totalChanges = additions + deletions;
+            const filesChanged = pr.changed_files;
+
+            // Size labels
+            if (totalChanges < 10) {
+              labels.add('size/XS');
+            } else if (totalChanges < 50) {
+              labels.add('size/S');
+            } else if (totalChanges < 250) {
+              labels.add('size/M');
+            } else if (totalChanges < 1000) {
+              labels.add('size/L');
+            } else {
+              labels.add('size/XL');
+            }
+
+            // Area labels based on files changed
+            const frontendPatterns = ['frontend/', 'src/components/', 'src/pages/', '.tsx', '.jsx', '.css', '.scss'];
+            const backendPatterns = ['backend/', 'api/', 'server/', '.go', 'cmd/', 'internal/'];
+            const ciPatterns = ['.github/workflows/', '.github/actions/', 'Dockerfile', 'docker-compose'];
+            const docsPatterns = ['.md', 'docs/', 'README'];
+            const testPatterns = ['.test.', '.spec.', '__tests__/', 'tests/'];
+
+            const hasFrontend = changedFiles.some(f => frontendPatterns.some(p => f.filename.includes(p)));
+            const hasBackend = changedFiles.some(f => backendPatterns.some(p => f.filename.includes(p)));
+            const hasCI = changedFiles.some(f => ciPatterns.some(p => f.filename.includes(p)));
+            const hasDocs = changedFiles.some(f => docsPatterns.some(p => f.filename.includes(p)));
+            const hasTests = changedFiles.some(f => testPatterns.some(p => f.filename.includes(p)));
+
+            if (hasFrontend) labels.add('area/frontend');
+            if (hasBackend) labels.add('area/backend');
+            if (hasCI) labels.add('area/ci');
+            if (hasDocs) labels.add('area/documentation');
+            if (hasTests) labels.add('testing');
+
+            // Type labels based on PR title and branch name
+            const title = pr.title.toLowerCase();
+            const branch = pr.head.ref.toLowerCase();
+            const combined = title + ' ' + branch;
+
+            if (combined.includes('fix') || combined.includes('bug')) {
+              labels.add('type/bugfix');
+            } else if (combined.includes('feat') || combined.includes('feature')) {
+              labels.add('type/feature');
+            } else if (combined.includes('refactor') || combined.includes('refactoring')) {
+              labels.add('type/refactor');
+            } else if (combined.includes('perf') || combined.includes('performance')) {
+              labels.add('type/performance');
+            } else if (combined.includes('docs') || combined.includes('documentation')) {
+              labels.add('type/documentation');
+            } else if (combined.includes('test')) {
+              labels.add('type/test');
+            } else if (combined.includes('chore') || combined.includes('ci')) {
+              labels.add('type/chore');
+            } else if (combined.includes('style')) {
+              labels.add('type/style');
+            }
+
+            // Breaking change detection
+            if (combined.includes('breaking') || combined.includes('!:')) {
+              labels.add('breaking-change');
+            }
+
+            // Dependencies
+            const hasDependencies = changedFiles.some(f =>
+              f.filename === 'package.json' ||
+              f.filename === 'package-lock.json' ||
+              f.filename === 'go.mod' ||
+              f.filename === 'go.sum' ||
+              f.filename === 'requirements.txt'
+            );
+            if (hasDependencies) {
+              labels.add('dependencies');
+            }
+
+            // Security
+            const hasSecurityFiles = changedFiles.some(f =>
+              f.filename.includes('auth') ||
+              f.filename.includes('security') ||
+              f.filename.includes('middleware')
+            );
+            if (hasSecurityFiles || combined.includes('security') || combined.includes('cve')) {
+              labels.add('security');
+            }
+
+            core.setOutput('labels', Array.from(labels).join(','));
+            core.setOutput('size', totalChanges);
+            core.setOutput('files_changed', filesChanged);
+            return Array.from(labels);
+
+      - name: Apply labels
+        if: steps.analyze.outputs.labels != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = '${{ steps.analyze.outputs.labels }}'.split(',').filter(l => l);
+
+            if (labels.length === 0) {
+              console.log('No labels to apply');
+              return;
+            }
+
+            console.log('Applying labels:', labels);
+
+            // Remove old size labels first
+            const existingLabels = context.payload.pull_request.labels.map(l => l.name);
+            const sizeLabels = ['size/XS', 'size/S', 'size/M', 'size/L', 'size/XL'];
+
+            for (const sizeLabel of sizeLabels) {
+              if (existingLabels.includes(sizeLabel) && !labels.includes(sizeLabel)) {
+                try {
+                  await github.rest.issues.removeLabel({
+                    issue_number: context.issue.number,
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: sizeLabel
+                  });
+                } catch (error) {
+                  console.log(`Could not remove label ${sizeLabel}`);
+                }
+              }
+            }
+
+            // Add new labels
+            await github.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: labels
+            });
+
+      - name: Comment on large PRs
+        if: contains(steps.analyze.outputs.labels, 'size/XL')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const size = '${{ steps.analyze.outputs.size }}';
+            const files = '${{ steps.analyze.outputs.files_changed }}';
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `📏 **Large PR Detected**\n\nThis PR has ${size} line changes across ${files} files.\n\n**Recommendations**:\n- Consider breaking this into smaller PRs for easier review\n- Ensure comprehensive testing\n- Add detailed description and screenshots\n- Request review from multiple reviewers\n\n**Benefits of smaller PRs**:\n- ✅ Faster reviews\n- ✅ Easier to understand changes\n- ✅ Lower risk of bugs\n- ✅ Better git history`
+            });
+
+      - name: Comment on breaking changes
+        if: contains(steps.analyze.outputs.labels, 'breaking-change')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `⚠️ **Breaking Change Detected**\n\nThis PR contains breaking changes.\n\n**Required**:\n- [ ] Update CHANGELOG.md\n- [ ] Document migration guide\n- [ ] Update version (major bump)\n- [ ] Notify all stakeholders\n- [ ] Update documentation\n\n**Before merging**:\n- Ensure all dependent services are updated\n- Plan deployment strategy\n- Communicate timeline to users`
+            });
