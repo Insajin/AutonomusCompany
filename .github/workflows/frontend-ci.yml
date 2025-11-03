@@ -51,7 +51,7 @@ jobs:
       # Step 5: Type check (if TypeScript)
       - name: Type check
         working-directory: frontend
-        run: npm run type-check
+        run: npx tsc --noEmit
         if: hashFiles('frontend/tsconfig.json') != ''
         continue-on-error: false
 

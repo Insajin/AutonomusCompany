@@ -1,4 +1,4 @@
-name: Project Board Automation
+name: Status Label Automation
 
 on:
   issues:
@@ -12,30 +12,44 @@ permissions:
   contents: read
   issues: write
   pull-requests: write
-  repository-projects: write
 
 jobs:
-  update-project:
-    name: Update Project Board
+  update-status:
+    name: Update Status Labels
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:
-      - name: Add new issues to project
+      - name: Add status label to new issues
         if: github.event_name == 'issues' && github.event.action == 'opened'
-        uses: actions/add-to-project@v0.5.0
+        uses: actions/github-script@v7
         with:
-          project-url: https://github.com/orgs/${{ github.repository_owner }}/projects/1
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['status/backlog']
+            });
 
-      - name: Add new PRs to project
+      - name: Add status label to new PRs
         if: github.event_name == 'pull_request' && github.event.action == 'opened'
-        uses: actions/add-to-project@v0.5.0
+        uses: actions/github-script@v7
         with:
-          project-url: https://github.com/orgs/${{ github.repository_owner }}/projects/1
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const isDraft = context.payload.pull_request.draft;
+            const label = isDraft ? 'status/draft' : 'status/in-progress';
 
-      - name: Update PR status
+            await github.rest.issues.addLabels({
+              issue_number: context.payload.pull_request.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: [label]
+            });
+
+      - name: Update PR status labels
         if: github.event_name == 'pull_request' || github.event_name == 'pull_request_review'
         uses: actions/github-script@v7
         with:
@@ -44,38 +58,52 @@ jobs:
             const pr = context.payload.pull_request;
             if (!pr) return;
 
-            let status = '';
-            let statusEmoji = '';
+            let newLabel = '';
+            const statusLabels = ['status/draft', 'status/in-progress', 'status/in-review', 'status/approved', 'status/done'];
 
-            // Determine status based on PR state and event
+            // Determine new status label based on PR state
             if (pr.draft) {
-              status = '📝 Draft';
-              statusEmoji = '📝';
+              newLabel = 'status/draft';
             } else if (pr.merged) {
-              status = '✅ Done';
-              statusEmoji = '✅';
-            } else if (pr.closed) {
-              status = '🚫 Closed';
-              statusEmoji = '🚫';
+              newLabel = 'status/done';
             } else if (context.payload.review?.state === 'approved') {
-              status = '👍 Approved';
-              statusEmoji = '👍';
-            } else if (context.payload.review?.state === 'changes_requested') {
-              status = '🔄 Changes Requested';
-              statusEmoji = '🔄';
+              newLabel = 'status/approved';
             } else if (pr.requested_reviewers && pr.requested_reviewers.length > 0) {
-              status = '👀 In Review';
-              statusEmoji = '👀';
-            } else {
-              status = '🚧 In Progress';
-              statusEmoji = '🚧';
+              newLabel = 'status/in-review';
+            } else if (!pr.draft && !pr.merged && !pr.closed) {
+              newLabel = 'status/in-progress';
             }
 
-            console.log(`PR #${pr.number} status: ${status}`);
+            if (!newLabel) return;
 
-            // Note: To actually update the project board, you would need to use the GitHub Projects API
-            // This requires additional setup with a Project PAT token
-            // See: https://docs.github.com/en/issues/planning-and-tracking-with-projects/automating-your-project/using-the-api-to-manage-projects
+            console.log(`Updating PR #${pr.number} status to: ${newLabel}`);
+
+            // Remove old status labels
+            const currentLabels = pr.labels.map(l => l.name);
+            for (const oldLabel of statusLabels) {
+              if (currentLabels.includes(oldLabel) && oldLabel !== newLabel) {
+                try {
+                  await github.rest.issues.removeLabel({
+                    issue_number: pr.number,
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: oldLabel
+                  });
+                } catch (error) {
+                  console.log(`Could not remove label ${oldLabel}`);
+                }
+              }
+            }
+
+            // Add new status label
+            if (!currentLabels.includes(newLabel)) {
+              await github.rest.issues.addLabels({
+                issue_number: pr.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                labels: [newLabel]
+              });
+            }
 
       - name: Update issue status on close
         if: github.event_name == 'issues' && github.event.action == 'closed'
@@ -122,7 +150,7 @@ jobs:
               labels: ['status/in-progress']
             });
 
-      - name: Comment on project addition
+      - name: Comment on status update
         if: (github.event_name == 'issues' || github.event_name == 'pull_request') && github.event.action == 'opened'
         uses: actions/github-script@v7
         with:
@@ -130,10 +158,11 @@ jobs:
             const isIssue = context.eventName === 'issues';
             const number = isIssue ? context.issue.number : context.payload.pull_request.number;
             const type = isIssue ? 'issue' : 'PR';
+            const label = isIssue ? '`status/backlog`' : (context.payload.pull_request?.draft ? '`status/draft`' : '`status/in-progress`');
 
             await github.rest.issues.createComment({
               issue_number: number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `🎯 This ${type} has been added to the project board.\n\n**Next steps**:\n${isIssue ? '- Review and triage\n- Assign to sprint\n- Start work' : '- Request review\n- Address feedback\n- Merge when approved'}`
+              body: `🏷️ Status label ${label} has been added automatically.\n\n**Next steps**:\n${isIssue ? '- Review and triage\n- Assign to sprint\n- Start work' : '- Request review\n- Address feedback\n- Merge when approved'}\n\n_Status will be updated automatically as work progresses._`
             });
