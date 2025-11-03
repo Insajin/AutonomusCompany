@@ -93,7 +93,7 @@ jobs:
 
       # Step 6: Upload coverage report
       - name: Upload coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         if: always()
         with:
           name: backend-coverage
@@ -113,7 +113,7 @@ jobs:
       # Step 8: Upload build artifacts (if applicable)
       - name: Upload build artifacts
         if: hashFiles('backend/dist/') != '' || hashFiles('backend/build/') != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: backend-build
           path: |

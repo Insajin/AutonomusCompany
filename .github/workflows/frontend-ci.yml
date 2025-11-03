@@ -64,7 +64,7 @@ jobs:
 
       # Step 7: Upload coverage report
       - name: Upload coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         if: always()
         with:
           name: frontend-coverage
@@ -125,7 +125,7 @@ jobs:
 
       # Step 9: Upload build artifacts
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: frontend-build
           path: frontend/.next/  # or frontend/dist/ for other frameworks
