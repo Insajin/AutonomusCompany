@@ -1,0 +1,193 @@
+name: Weekly Feature Suggestions
+
+# Run every Monday at 09:00 UTC
+on:
+  schedule:
+    - cron: '0 9 * * 1'
+  # Allow manual trigger for testing
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  discussions: write
+  id-token: write
+
+jobs:
+  generate-suggestions:
+    name: Generate Feature Suggestions
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for better analysis
+
+      - name: Get repository stats
+        id: repo-stats
+        run: |
+          echo "total_commits=$(git rev-list --count HEAD)" >> $GITHUB_OUTPUT
+          echo "total_files=$(find . -type f -not -path '*/\.*' | wc -l)" >> $GITHUB_OUTPUT
+          echo "last_commit_date=$(git log -1 --format=%cd --date=short)" >> $GITHUB_OUTPUT
+
+      - name: Analyze codebase with Claude
+        id: claude-analysis
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Analyze this codebase and suggest improvements in the following areas:
+
+            1. **New Features**: What new functionality would enhance this project?
+            2. **Code Improvements**: What refactoring or optimizations would improve code quality?
+            3. **Automation Workflows**: What additional GitHub Actions workflows would be beneficial?
+            4. **Documentation**: What documentation gaps need to be filled?
+
+            Repository Stats:
+            - Total commits: ${{ steps.repo-stats.outputs.total_commits }}
+            - Total files: ${{ steps.repo-stats.outputs.total_files }}
+            - Last commit: ${{ steps.repo-stats.outputs.last_commit_date }}
+
+            For each suggestion, provide:
+            - **Title**: Clear, concise title
+            - **Category**: New Feature / Code Improvement / Automation / Documentation
+            - **Priority**: Critical / High / Medium / Low
+            - **Description**: Detailed explanation of the suggestion
+            - **Benefits**: Why this would be valuable
+            - **Implementation Notes**: High-level approach to implementation
+
+            Format your response as a structured markdown document with sections for each category.
+            Focus on practical, actionable suggestions that align with the project's current architecture.
+        continue-on-error: true
+
+      - name: Create GitHub Discussion
+        if: steps.claude-analysis.outcome == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const analysisOutput = `${{ steps.claude-analysis.outputs.result }}`;
+            const today = new Date().toISOString().split('T')[0];
+
+            const discussionBody = `
+            # 🤖 Weekly Feature Suggestions - ${today}
+
+            Claude Code has analyzed the codebase and identified the following improvement opportunities:
+
+            ${analysisOutput}
+
+            ---
+
+            ## 💬 How to Provide Feedback
+
+            - **Refine a suggestion**: Comment with \`@claude refine [suggestion title]\` and provide your thoughts
+            - **Approve a suggestion**: React with 👍 and add the \`approved\` label to prioritize implementation
+            - **Reject a suggestion**: React with 👎 and add the \`rejected\` label with explanation
+            - **Ask questions**: Comment normally to discuss any suggestion
+
+            ## 🚀 Next Steps
+
+            Once a suggestion is approved:
+            1. A detailed specification will be created in \`specs/\`
+            2. An implementation PR will be automatically generated
+            3. The PR will go through normal code review process
+            4. Merge when ready!
+
+            ---
+
+            _Generated automatically by Claude Code on ${today}_
+            _Repository: ${{ github.repository }}_
+            _Workflow Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}_
+            `;
+
+            try {
+              const discussion = await github.graphql(`
+                mutation($repositoryId: ID!, $categoryId: ID!, $title: String!, $body: String!) {
+                  createDiscussion(input: {
+                    repositoryId: $repositoryId
+                    categoryId: $categoryId
+                    title: $title
+                    body: $body
+                  }) {
+                    discussion {
+                      id
+                      number
+                      url
+                    }
+                  }
+                }
+              `, {
+                repositoryId: context.payload.repository.node_id,
+                // Note: You'll need to get the category ID for your "Ideas" or "General" discussion category
+                // Run: gh api graphql -f query='query {repository(owner:"OWNER",name:"REPO"){discussionCategories(first:10){nodes{id name}}}}'
+                categoryId: 'DIC_kwDONYXGNs4ClOQp', // Replace with your actual category ID
+                title: `Weekly Feature Suggestions - ${today}`,
+                body: discussionBody
+              });
+
+              console.log('Created discussion:', discussion.createDiscussion.discussion.url);
+
+              core.setOutput('discussion_url', discussion.createDiscussion.discussion.url);
+              core.setOutput('discussion_number', discussion.createDiscussion.discussion.number);
+
+            } catch (error) {
+              console.error('Error creating discussion:', error);
+
+              // Fallback: Create as issue if discussions are not enabled
+              console.log('Attempting to create as issue instead...');
+
+              const issue = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `Weekly Feature Suggestions - ${today}`,
+                body: discussionBody,
+                labels: ['enhancement', 'ai-generated', 'needs-triage']
+              });
+
+              console.log('Created issue:', issue.data.html_url);
+              core.setOutput('discussion_url', issue.data.html_url);
+              core.setOutput('discussion_number', issue.data.number);
+            }
+
+      - name: Handle analysis errors
+        if: steps.claude-analysis.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '⚠️ Weekly Feature Suggestions Failed',
+              body: `The weekly feature suggestion analysis failed to complete.
+
+              **Error Details:**
+              - Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+              - Error: ${{ steps.claude-analysis.outputs.error }}
+
+              **Possible Causes:**
+              1. Claude Max usage limit reached
+              2. OAuth token expired or invalid
+              3. Repository too large for analysis timeout
+
+              **Next Steps:**
+              - Check Claude Max subscription status
+              - Verify \`CLAUDE_CODE_OAUTH_TOKEN\` secret is valid
+              - Review workflow logs for details
+              - Consider running analysis manually with \`workflow_dispatch\`
+
+              This will be retried automatically next Monday.`,
+              labels: ['bug', 'automation', 'needs-investigation']
+            });
+
+            console.log('Created error issue:', issue.data.html_url);
+
+      - name: Post summary
+        if: always()
+        run: |
+          if [ "${{ steps.claude-analysis.outcome }}" == "success" ]; then
+            echo "✅ Feature suggestions generated successfully"
+            echo "Discussion: ${{ steps.claude-analysis.outputs.discussion_url }}"
+          else
+            echo "❌ Feature suggestion generation failed"
+            echo "Check workflow logs for details"
+          fi

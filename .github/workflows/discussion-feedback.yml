@@ -1,0 +1,287 @@
+name: Discussion Feedback Handler
+
+on:
+  discussion_comment:
+    types: [created]
+  discussion:
+    types: [labeled]
+
+permissions:
+  contents: read
+  discussions: write
+  id-token: write
+
+jobs:
+  handle-feedback:
+    name: Process Discussion Feedback
+    # Only run if @claude is mentioned or specific labels are added
+    if: |
+      (github.event_name == 'discussion_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'discussion' && contains(github.event.label.name, 'approved'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Parse command
+        id: parse
+        uses: actions/github-script@v7
+        with:
+          script: |
+            let command = 'none';
+            let details = '';
+
+            if (context.eventName === 'discussion_comment') {
+              const body = context.payload.comment.body;
+
+              // Input validation
+              if (body.length > 10000) {
+                core.setFailed('Comment is too long. Maximum 10000 characters allowed.');
+                return;
+              }
+
+              if (body.includes('@claude refine')) {
+                command = 'refine';
+                const match = body.match(/@claude refine\s+(.+)/is);
+                if (match && match[1]) {
+                  details = match[1].trim().substring(0, 2000);
+                } else {
+                  details = 'Refine the feature suggestion based on the discussion';
+                }
+              } else if (body.includes('@claude clarify')) {
+                command = 'clarify';
+                const match = body.match(/@claude clarify\s+(.+)/is);
+                if (match && match[1]) {
+                  details = match[1].trim().substring(0, 2000);
+                } else {
+                  details = 'Provide clarification on the suggestion';
+                }
+              } else if (body.includes('@claude analyze')) {
+                command = 'analyze';
+                details = 'Analyze the feasibility and impact of this suggestion';
+              } else {
+                command = 'unknown';
+              }
+            } else if (context.eventName === 'discussion') {
+              if (context.payload.label.name === 'approved') {
+                command = 'approved';
+                details = 'Generate detailed specification for implementation';
+              }
+            }
+
+            core.setOutput('command', command);
+            core.setOutput('details', details);
+            console.log(`Parsed command: ${command}`);
+            console.log(`Details: ${details}`);
+
+      - name: Get discussion content
+        if: steps.parse.outputs.command != 'none' && steps.parse.outputs.command != 'unknown'
+        id: get-discussion
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const discussionNumber = context.payload.discussion.number;
+
+            const query = `
+              query($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  discussion(number: $number) {
+                    title
+                    body
+                    comments(first: 100) {
+                      nodes {
+                        author {
+                          login
+                        }
+                        body
+                        createdAt
+                      }
+                    }
+                  }
+                }
+              }
+            `;
+
+            const result = await github.graphql(query, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              number: discussionNumber
+            });
+
+            const discussion = result.repository.discussion;
+
+            core.setOutput('title', discussion.title);
+            core.setOutput('body', discussion.body);
+            core.setOutput('comments', JSON.stringify(discussion.comments.nodes));
+
+            return discussion;
+
+      - name: Post acknowledgment
+        if: steps.parse.outputs.command != 'none' && steps.parse.outputs.command != 'unknown'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const command = '${{ steps.parse.outputs.command }}';
+            let message = '🤖 Processing your request...\n\n';
+
+            if (command === 'refine') {
+              message += 'Refining the feature suggestion based on your feedback. This usually takes 2-5 minutes.';
+            } else if (command === 'clarify') {
+              message += 'Analyzing the suggestion to provide clarification. This usually takes 1-3 minutes.';
+            } else if (command === 'analyze') {
+              message += 'Analyzing feasibility and impact. This usually takes 3-5 minutes.';
+            } else if (command === 'approved') {
+              message += 'Creating detailed specification for implementation. This may take 5-10 minutes.';
+            }
+
+            await github.graphql(`
+              mutation($discussionId: ID!, $body: String!) {
+                addDiscussionComment(input: {
+                  discussionId: $discussionId
+                  body: $body
+                }) {
+                  comment {
+                    id
+                  }
+                }
+              }
+            `, {
+              discussionId: context.payload.discussion.node_id,
+              body: message
+            });
+
+      - name: Process with Claude
+        if: steps.parse.outputs.command != 'none' && steps.parse.outputs.command != 'unknown'
+        id: claude-process
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            **Command**: ${{ steps.parse.outputs.command }}
+
+            **Original Suggestion**:
+            Title: ${{ steps.get-discussion.outputs.title }}
+
+            ${{ steps.get-discussion.outputs.body }}
+
+            **Discussion Comments**:
+            ${{ steps.get-discussion.outputs.comments }}
+
+            **User Request**:
+            ${{ steps.parse.outputs.details }}
+
+            ---
+
+            Based on the command and user feedback, please:
+
+            ${{ steps.parse.outputs.command == 'refine' && 'Refine the feature suggestion incorporating the feedback from the discussion. Update the description, benefits, implementation notes, or any other sections based on the comments. Maintain the same format as the original suggestion.' || '' }}
+
+            ${{ steps.parse.outputs.command == 'clarify' && 'Provide detailed clarification on specific aspects of the suggestion that users asked about. Address any questions or concerns raised in the comments.' || '' }}
+
+            ${{ steps.parse.outputs.command == 'analyze' && 'Analyze the technical feasibility, implementation complexity, potential risks, and expected impact of this suggestion. Consider dependencies, breaking changes, and resource requirements.' || '' }}
+
+            ${{ steps.parse.outputs.command == 'approved' && 'Create a comprehensive specification document for this approved feature, including: detailed requirements, user scenarios, technical architecture, implementation plan, testing strategy, and acceptance criteria. Format as a complete spec.md ready for the specs/ directory.' || '' }}
+
+            Provide your response in clear, structured markdown format.
+        continue-on-error: true
+
+      - name: Post response to discussion
+        if: steps.claude-process.outcome == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const command = '${{ steps.parse.outputs.command }}';
+            const result = `${{ steps.claude-process.outputs.result }}`;
+
+            let responseTitle = '';
+            if (command === 'refine') {
+              responseTitle = '## 🔄 Refined Suggestion\n\n';
+            } else if (command === 'clarify') {
+              responseTitle = '## 💡 Clarification\n\n';
+            } else if (command === 'analyze') {
+              responseTitle = '## 📊 Feasibility Analysis\n\n';
+            } else if (command === 'approved') {
+              responseTitle = '## 📋 Detailed Specification\n\n';
+            }
+
+            const responseBody = `${responseTitle}${result}\n\n---\n\n_Generated by Claude Code in response to: ${{ steps.parse.outputs.details }}_`;
+
+            await github.graphql(`
+              mutation($discussionId: ID!, $body: String!) {
+                addDiscussionComment(input: {
+                  discussionId: $discussionId
+                  body: $body
+                }) {
+                  comment {
+                    id
+                  }
+                }
+              }
+            `, {
+              discussionId: context.payload.discussion.node_id,
+              body: responseBody
+            });
+
+            console.log('Posted response to discussion');
+
+      - name: Handle errors
+        if: steps.claude-process.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            let errorMessage = '⚠️ **Unable to process request**\n\n';
+            errorMessage += 'The Claude Code action encountered an error. ';
+            errorMessage += 'This could be due to usage limits, timeout, or authentication issues.\n\n';
+            errorMessage += '**Next steps**:\n';
+            errorMessage += '- Try again in a few minutes\n';
+            errorMessage += '- Check workflow logs for details\n';
+            errorMessage += '- Contact repository maintainers if issue persists\n\n';
+            errorMessage += `Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
+
+            await github.graphql(`
+              mutation($discussionId: ID!, $body: String!) {
+                addDiscussionComment(input: {
+                  discussionId: $discussionId
+                  body: $body
+                }) {
+                  comment {
+                    id
+                  }
+                }
+              }
+            `, {
+              discussionId: context.payload.discussion.node_id,
+              body: errorMessage
+            });
+
+      - name: Handle unknown command
+        if: steps.parse.outputs.command == 'unknown'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const message = `ℹ️ **Unknown command**\n\n` +
+              `Available commands:\n` +
+              `- \`@claude refine [your feedback]\` - Refine the suggestion based on feedback\n` +
+              `- \`@claude clarify [what you need clarified]\` - Get clarification on specific points\n` +
+              `- \`@claude analyze\` - Analyze feasibility and impact\n\n` +
+              `Or add the \`approved\` label to this discussion to generate a detailed specification.`;
+
+            await github.graphql(`
+              mutation($discussionId: ID!, $body: String!) {
+                addDiscussionComment(input: {
+                  discussionId: $discussionId
+                  body: $body
+                }) {
+                  comment {
+                    id
+                  }
+                }
+              }
+            `, {
+              discussionId: context.payload.discussion.node_id,
+              body: message
+            });

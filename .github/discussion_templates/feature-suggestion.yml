@@ -1,0 +1,179 @@
+name: Feature Suggestion Template
+about: Template for AI-generated and community feature suggestions
+labels: [enhancement, needs-review]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        # Feature Suggestion Template
+
+        This template is used for both AI-generated and community feature suggestions.
+
+        ## For AI-Generated Suggestions
+
+        If this is an AI-generated suggestion from the weekly analysis, it should include:
+        - Clear problem statement
+        - Proposed solution
+        - Benefits and impact
+        - Implementation approach
+
+        ## For Manual Suggestions
+
+        If you're manually suggesting a feature, please provide:
+        - Description of the problem
+        - Your proposed solution
+        - Why this would be valuable
+        - Any implementation ideas you have
+
+  - type: textarea
+    id: category
+    attributes:
+      label: Category
+      description: What type of suggestion is this?
+      placeholder: |
+        Choose one:
+        - 🆕 New Feature
+        - 🔧 Code Improvement
+        - ⚙️ Automation Workflow
+        - 📚 Documentation
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this suggestion?
+      options:
+        - Critical (blocking issues, security)
+        - High (important improvements)
+        - Medium (nice to have)
+        - Low (minor enhancement)
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem does this address?
+      placeholder: Currently, the system...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: How would you solve this problem?
+      placeholder: We could implement...
+    validations:
+      required: true
+
+  - type: textarea
+    id: benefits
+    attributes:
+      label: Benefits
+      description: What value would this provide?
+      placeholder: |
+        This would:
+        - Improve...
+        - Reduce...
+        - Enable...
+    validations:
+      required: true
+
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Implementation Notes
+      description: High-level approach to implementing this
+      placeholder: |
+        Technical approach:
+        1. Create...
+        2. Modify...
+        3. Add...
+
+        Files affected:
+        - src/...
+        - .github/workflows/...
+    validations:
+      required: false
+
+  - type: textarea
+    id: testing
+    attributes:
+      label: Testing Approach
+      description: How would we test this?
+      placeholder: |
+        - Unit tests: ...
+        - Integration tests: ...
+        - Manual testing: ...
+    validations:
+      required: false
+
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks & Considerations
+      description: Any potential issues or concerns?
+      placeholder: |
+        - Breaking changes: ...
+        - Performance impact: ...
+        - Dependencies: ...
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternative Approaches
+      description: Other ways to solve this problem?
+      placeholder: We could also...
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+
+        ## How to Interact with This Suggestion
+
+        ### For Discussion Participants
+
+        **Refine the suggestion**:
+        ```
+        @claude refine
+        [Provide your feedback and suggestions for improvement]
+        ```
+
+        **Get clarification**:
+        ```
+        @claude clarify
+        [What you need clarified]
+        ```
+
+        **Analyze feasibility**:
+        ```
+        @claude analyze
+        ```
+
+        ### For Maintainers
+
+        **Approve for implementation**:
+        Add the `approved` label to this discussion. This will:
+        1. Generate a detailed specification in `specs/`
+        2. Automatically create an implementation PR
+        3. Run through normal code review process
+
+        **Reject suggestion**:
+        Add the `rejected` label with an explanation comment.
+
+        **Request changes**:
+        Comment with feedback and request refinements using `@claude refine`
+
+        ---
+
+        _This suggestion will be part of the project's continuous improvement process._

@@ -1,0 +1,502 @@
+name: Implement Approved Feature
+
+on:
+  discussion:
+    types: [labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+  discussions: write
+  id-token: write
+
+jobs:
+  create-spec:
+    name: Create Feature Specification
+    # Only run when "approved" label is added
+    if: github.event.label.name == 'approved'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      spec_created: ${{ steps.create-spec.outputs.created }}
+      feature_id: ${{ steps.create-spec.outputs.feature_id }}
+      spec_path: ${{ steps.create-spec.outputs.spec_path }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get discussion details
+        id: get-discussion
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const discussionNumber = context.payload.discussion.number;
+
+            const query = `
+              query($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  discussion(number: $number) {
+                    title
+                    body
+                    author {
+                      login
+                    }
+                    createdAt
+                    comments(first: 100) {
+                      nodes {
+                        author {
+                          login
+                        }
+                        body
+                        createdAt
+                      }
+                    }
+                  }
+                }
+              }
+            `;
+
+            const result = await github.graphql(query, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              number: discussionNumber
+            });
+
+            const discussion = result.repository.discussion;
+
+            core.setOutput('title', discussion.title);
+            core.setOutput('body', discussion.body);
+            core.setOutput('author', discussion.author.login);
+            core.setOutput('created_at', discussion.createdAt);
+            core.setOutput('comments_json', JSON.stringify(discussion.comments.nodes));
+
+            return discussion;
+
+      - name: Generate feature ID
+        id: generate-id
+        run: |
+          # Find next available feature number
+          NEXT_NUM=1
+          if [ -d "specs" ]; then
+            LAST_NUM=$(ls -d specs/[0-9][0-9][0-9]-* 2>/dev/null | sed 's/specs\/\([0-9]*\)-.*/\1/' | sort -n | tail -1)
+            if [ -n "$LAST_NUM" ]; then
+              NEXT_NUM=$((10#$LAST_NUM + 1))
+            fi
+          fi
+          FEATURE_ID=$(printf "%03d" $NEXT_NUM)
+
+          # Create slug from title
+          SLUG=$(echo "${{ steps.get-discussion.outputs.title }}" | \
+            tr '[:upper:]' '[:lower:]' | \
+            sed 's/[^a-z0-9]/-/g' | \
+            sed 's/--*/-/g' | \
+            sed 's/^-//;s/-$//' | \
+            cut -c1-50)
+
+          FEATURE_DIR="${FEATURE_ID}-${SLUG}"
+
+          echo "feature_id=${FEATURE_ID}" >> $GITHUB_OUTPUT
+          echo "slug=${SLUG}" >> $GITHUB_OUTPUT
+          echo "feature_dir=${FEATURE_DIR}" >> $GITHUB_OUTPUT
+
+      - name: Create spec with Claude
+        id: create-spec
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Create a comprehensive feature specification for the following approved suggestion:
+
+            **Feature Title**: ${{ steps.get-discussion.outputs.title }}
+
+            **Original Proposal**:
+            ${{ steps.get-discussion.outputs.body }}
+
+            **Discussion Comments** (including refinements and clarifications):
+            ${{ steps.get-discussion.outputs.comments_json }}
+
+            **Feature ID**: ${{ steps.generate-id.outputs.feature_id }}-${{ steps.generate-id.outputs.slug }}
+
+            ---
+
+            Please create a complete specification document following this structure:
+
+            # Feature Specification: [Feature Title]
+
+            **Feature ID**: [ID]
+            **Created**: [Current date]
+            **Status**: Approved
+            **Proposed by**: @${{ steps.get-discussion.outputs.author }}
+            **Discussion**: #${{ github.event.discussion.number }}
+
+            ## Overview
+
+            [Brief summary of what this feature does and why it's needed]
+
+            ## User Scenarios & Testing
+
+            [Detailed user stories with acceptance criteria - at least 3 scenarios]
+
+            ### User Story 1 - [Name] (Priority: P1/P2/P3)
+
+            [Description of user need and value]
+
+            **Acceptance Scenarios**:
+            1. Given... When... Then...
+            2. Given... When... Then...
+
+            ## Technical Architecture
+
+            ### Components Affected
+            - [List of files, modules, or systems that will change]
+
+            ### Data Model Changes
+            - [Any database schema or data structure changes]
+
+            ### API Changes
+            - [New or modified API endpoints]
+
+            ### Dependencies
+            - [External libraries or services needed]
+
+            ## Implementation Plan
+
+            ### Phase 1: [Description]
+            - Task 1
+            - Task 2
+
+            ### Phase 2: [Description]
+            - Task 1
+            - Task 2
+
+            ## Testing Strategy
+
+            - Unit tests: [What to test]
+            - Integration tests: [What to test]
+            - E2E tests: [What to test]
+
+            ## Security & Performance Considerations
+
+            - Security: [Any security implications]
+            - Performance: [Performance impact and optimizations]
+
+            ## Documentation Updates
+
+            - [List of documentation that needs updating]
+
+            ## Rollout Plan
+
+            - [How this will be deployed and released]
+
+            ---
+
+            Save this specification to: specs/${{ steps.generate-id.outputs.feature_dir }}/spec.md
+
+            Then create a brief summary response confirming the spec was created.
+        continue-on-error: true
+
+      - name: Commit spec to repository
+        if: steps.create-spec.outcome == 'success'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          FEATURE_DIR="specs/${{ steps.generate-id.outputs.feature_dir }}"
+
+          # Create spec directory if it doesn't exist
+          mkdir -p "${FEATURE_DIR}"
+
+          # Check if spec.md was created by Claude
+          if [ -f "${FEATURE_DIR}/spec.md" ]; then
+            git add "${FEATURE_DIR}/"
+            git commit -m "docs: add specification for ${{ steps.get-discussion.outputs.title }}" \
+              -m "Feature ID: ${{ steps.generate-id.outputs.feature_id }}" \
+              -m "Discussion: #${{ github.event.discussion.number }}" \
+              -m "Proposed by: @${{ steps.get-discussion.outputs.author }}" \
+              -m "" \
+              -m "Co-Authored-By: Claude <noreply@anthropic.com>"
+
+            git push origin HEAD:main
+
+            echo "created=true" >> $GITHUB_OUTPUT
+            echo "spec_path=${FEATURE_DIR}/spec.md" >> $GITHUB_OUTPUT
+          else
+            echo "Spec file not found, Claude may not have created it"
+            echo "created=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment on discussion with spec
+        if: steps.create-spec.outcome == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const specPath = '${{ steps.create-spec.outputs.spec_path || 'specs/' + steps.generate-id.outputs.feature_dir + '/spec.md' }}';
+
+            const message = `## ✅ Specification Created
+
+            A detailed specification has been created for this approved feature:
+
+            📄 **Spec location**: \`${specPath}\`
+            🔖 **Feature ID**: ${{ steps.generate-id.outputs.feature_id }}-${{ steps.generate-id.outputs.slug }}
+
+            ### Next Steps
+
+            1. ⏳ Implementation PR will be created automatically (in progress)
+            2. 👀 Review the implementation PR when ready
+            3. ✅ Approve and merge when satisfied
+            4. 🎉 Feature will be deployed to production
+
+            ---
+
+            _Specification committed to main branch_
+            _Implementation starting..._`;
+
+            await github.graphql(`
+              mutation($discussionId: ID!, $body: String!) {
+                addDiscussionComment(input: {
+                  discussionId: $discussionId
+                  body: $body
+                }) {
+                  comment {
+                    id
+                  }
+                }
+              }
+            `, {
+              discussionId: context.payload.discussion.node_id,
+              body: message
+            });
+
+  implement-feature:
+    name: Generate Implementation PR
+    needs: create-spec
+    if: needs.create-spec.outputs.spec_created == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Create feature branch
+        id: create-branch
+        run: |
+          BRANCH_NAME="feature/${{ needs.create-spec.outputs.feature_id }}-${{ needs.create-spec.outputs.slug }}"
+          git checkout -b "${BRANCH_NAME}"
+          git push -u origin "${BRANCH_NAME}"
+
+          echo "branch_name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Implement feature with Claude
+        id: implement
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Implement the feature specified in: ${{ needs.create-spec.outputs.spec_path }}
+
+            Follow these guidelines:
+            1. Read the specification carefully
+            2. Implement all required functionality
+            3. Follow the project's coding standards (see CLAUDE.md)
+            4. Add appropriate tests
+            5. Update relevant documentation
+            6. Keep changes focused and minimal
+
+            Important:
+            - Follow the implementation plan in the spec
+            - Maintain backward compatibility where possible
+            - Add comments explaining complex logic
+            - Ensure all tests pass
+            - Keep files under 200 lines each
+
+            When complete, provide a summary of:
+            - Files created/modified
+            - Key implementation decisions
+            - Any deviations from the spec (with rationale)
+            - Testing approach
+        continue-on-error: true
+
+      - name: Commit implementation
+        if: steps.implement.outcome == 'success'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if [ -n "$(git status --porcelain)" ]; then
+            git add .
+            git commit -m "feat: implement ${{ steps.get-discussion.outputs.title }}" \
+              -m "Feature ID: ${{ needs.create-spec.outputs.feature_id }}" \
+              -m "Specification: ${{ needs.create-spec.outputs.spec_path }}" \
+              -m "Discussion: #${{ github.event.discussion.number }}" \
+              -m "" \
+              -m "Implemented based on approved feature suggestion." \
+              -m "See spec for full details and acceptance criteria." \
+              -m "" \
+              -m "Co-Authored-By: Claude <noreply@anthropic.com>"
+
+            git push origin HEAD
+          else
+            echo "No changes to commit"
+          fi
+
+      - name: Create Pull Request
+        if: steps.implement.outcome == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const specPath = '${{ needs.create-spec.outputs.spec_path }}';
+            const featureId = '${{ needs.create-spec.outputs.feature_id }}';
+            const discussionNumber = context.payload.discussion.number;
+
+            const prBody = `## 🤖 Automated Implementation
+
+            This PR implements the approved feature from Discussion #${discussionNumber}.
+
+            ### 📋 Specification
+
+            - **Spec**: \`${specPath}\`
+            - **Feature ID**: ${featureId}
+            - **Discussion**: #${discussionNumber}
+
+            ### ✅ Implementation Summary
+
+            ${{ steps.implement.outputs.result }}
+
+            ### 🧪 Testing
+
+            - [ ] All existing tests pass
+            - [ ] New tests added for new functionality
+            - [ ] Manual testing completed
+            - [ ] Documentation updated
+
+            ### 📝 Review Checklist
+
+            - [ ] Code follows project standards
+            - [ ] Implementation matches specification
+            - [ ] Tests provide adequate coverage
+            - [ ] Documentation is clear and complete
+            - [ ] No security vulnerabilities introduced
+
+            ### 🔗 Related
+
+            - Specification: ${specPath}
+            - Discussion: #${discussionNumber}
+            - Proposed by: @${{ steps.get-discussion.outputs.author }}
+
+            ---
+
+            _Generated automatically by Claude Code_
+            _Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}_`;
+
+            const pr = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `feat: ${{ steps.get-discussion.outputs.title }}`,
+              head: '${{ steps.create-branch.outputs.branch_name }}',
+              base: 'main',
+              body: prBody,
+              draft: false
+            });
+
+            console.log('Created PR:', pr.data.html_url);
+            core.setOutput('pr_number', pr.data.number);
+            core.setOutput('pr_url', pr.data.html_url);
+
+            // Add labels
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.data.number,
+              labels: ['enhancement', 'ai-generated', 'needs-review']
+            });
+
+      - name: Link PR to discussion
+        if: steps.implement.outcome == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prUrl = '${{ steps.create-pr.outputs.pr_url }}';
+            const prNumber = '${{ steps.create-pr.outputs.pr_number }}';
+
+            const message = `## 🚀 Implementation Ready
+
+            The implementation PR has been created: #${prNumber}
+
+            Please review the code, run tests, and provide feedback.
+
+            **Next steps**:
+            1. Review the PR code changes
+            2. Check that implementation matches specification
+            3. Run automated tests (CI will run automatically)
+            4. Approve or request changes
+            5. Merge when ready
+
+            ---
+
+            _Implementation completed by Claude Code_`;
+
+            await github.graphql(`
+              mutation($discussionId: ID!, $body: String!) {
+                addDiscussionComment(input: {
+                  discussionId: $discussionId
+                  body: $body
+                }) {
+                  comment {
+                    id
+                  }
+                }
+              }
+            `, {
+              discussionId: context.payload.discussion.node_id,
+              body: message
+            });
+
+      - name: Handle implementation errors
+        if: steps.implement.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const message = `## ⚠️ Implementation Failed
+
+            The automatic implementation encountered an error and could not complete.
+
+            **Possible causes**:
+            - Specification is too complex for automatic implementation
+            - Implementation requires manual decision-making
+            - Technical constraints or conflicts
+
+            **Next steps**:
+            1. Review the specification: \`${{ needs.create-spec.outputs.spec_path }}\`
+            2. Consider manual implementation
+            3. Break down into smaller features
+            4. Contact maintainers for assistance
+
+            **Workflow logs**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            ---
+
+            _The specification has been created and committed._
+            _Manual implementation may be required._`;
+
+            await github.graphql(`
+              mutation($discussionId: ID!, $body: String!) {
+                addDiscussionComment(input: {
+                  discussionId: $discussionId
+                  body: $body
+                }) {
+                  comment {
+                    id
+                  }
+                }
+              }
+            `, {
+              discussionId: context.payload.discussion.node_id,
+              body: message
+            });

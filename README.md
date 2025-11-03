@@ -10,41 +10,51 @@ A comprehensive GitHub repository template that automates development workflows 
 ## Features
 
 ### 🤖 AI-Powered Development
+
 - **Automated Code Review** - Claude Code reviews every PR within 2 minutes
 - **AI-Assisted Fixes** - Apply suggested improvements with `@claude apply`
 - **Intelligent Suggestions** - Security, bugs, performance, and quality feedback
+- **Automated Feature Suggestions** - Weekly AI analysis proposes new features and improvements
+- **Interactive Refinement** - Discuss and refine suggestions via GitHub Discussions
+- **Automatic Implementation** - Approved features automatically generate PRs with implementation
 
 ### 🔒 Security & Quality
+
 - **CodeQL Analysis** - Automated security vulnerability scanning
 - **Code Coverage** - 70% threshold with PR reports
 - **Pre-commit Hooks** - Lint, format, and validate before commit
 - **Conventional Commits** - Enforced commit message format
 
 ### ⚡ Performance Monitoring
+
 - **Lighthouse CI** - Automated performance audits
 - **Core Web Vitals** - Track FCP, LCP, CLS, TTI
 - **Bundle Size Tracking** - Monitor frontend bundle sizes
 - **Performance Budgets** - Fail builds that exceed limits
 
 ### 🚀 Release Automation
+
 - **Semantic Release** - Auto versioning based on commits
 - **Changelog Generation** - Automatic CHANGELOG.md updates
 - **GitHub Releases** - Auto-create releases with notes
 - **Conventional Commits** - Smart version bumping
 
 ### 🔧 Developer Experience
+
 - **Monorepo Support** - Separate frontend/backend workflows
 - **Intelligent CI/CD** - Only build/test changed components (40% faster)
 - **Dev Environment Setup** - One-command setup script
 - **Documentation** - Templates, guides, and examples
 
 ### 📦 Dependency Management
+
 - **Dependabot** - Monthly automated dependency updates + immediate security alerts
 - **Multiple Ecosystems** - npm, Go, GitHub Actions, Docker
 - **Smart Grouping** - Separate PRs per component
 - **Template-Optimized** - Maintains stable versions for new projects
 
 ### 💰 Cost Optimization
+
 - **No API Costs** - Uses Claude Max subscription (OAuth)
 - **Efficient CI** - Path-based filtering reduces build time
 - **Caching** - Dependencies and build artifacts cached
@@ -68,18 +78,21 @@ Get up and running in 15-30 minutes:
 
 This template includes pre-configured GitHub Actions workflows:
 
-| Workflow | File | Trigger | Purpose |
-|----------|------|---------|---------|
-| **Code Review** | `pr-review.yml` | PR opened | Automated code review by Claude Code |
-| **AI Fixes** | `ai-comment.yml` | `@claude` command | Apply AI-suggested fixes |
-| **Frontend CI** | `frontend-ci.yml` | Frontend changes | Build/test frontend with coverage |
-| **Backend CI** | `backend-ci.yml` | Backend changes | Build/test backend with coverage |
-| **CodeQL** | `codeql.yml` | PR + Weekly | Security vulnerability scanning |
-| **Lighthouse** | `lighthouse.yml` | Frontend changes | Performance audit (Core Web Vitals) |
-| **Semantic Release** | `release.yml` | Merge to main | Auto versioning & changelog |
-| **Doc Sync** | `docs-sync.yml` | Merge to main | Update documentation |
-| **Deploy** | `deploy.yml` | Merge to main | Deploy to production |
-| **Dependencies** | `dependabot.yml` | Weekly | Dependency updates |
+| Workflow                | File                             | Trigger                       | Purpose                                        |
+| ----------------------- | -------------------------------- | ----------------------------- | ---------------------------------------------- |
+| **Code Review**         | `pr-review.yml`                  | PR opened                     | Automated code review by Claude Code           |
+| **AI Fixes**            | `ai-comment.yml`                 | `@claude` command             | Apply AI-suggested fixes                       |
+| **Feature Suggestions** | `weekly-feature-suggestions.yml` | Weekly (Monday)               | AI analyzes codebase and proposes improvements |
+| **Discussion Feedback** | `discussion-feedback.yml`        | Discussion comments           | Refine suggestions based on feedback           |
+| **Auto Implementation** | `implement-approved-feature.yml` | Discussion labeled "approved" | Create spec and implementation PR              |
+| **Frontend CI**         | `frontend-ci.yml`                | Frontend changes              | Build/test frontend with coverage              |
+| **Backend CI**          | `backend-ci.yml`                 | Backend changes               | Build/test backend with coverage               |
+| **CodeQL**              | `codeql.yml`                     | PR + Weekly                   | Security vulnerability scanning                |
+| **Lighthouse**          | `lighthouse.yml`                 | Frontend changes              | Performance audit (Core Web Vitals)            |
+| **Semantic Release**    | `release.yml`                    | Merge to main                 | Auto versioning & changelog                    |
+| **Doc Sync**            | `docs-sync.yml`                  | Merge to main                 | Update documentation                           |
+| **Deploy**              | `deploy.yml`                     | Merge to main                 | Deploy to production                           |
+| **Dependencies**        | `dependabot.yml`                 | Weekly                        | Dependency updates                             |
 
 ### Project Structure
 
@@ -123,6 +136,7 @@ To apply suggested fixes:
 ```
 
 Claude Code will:
+
 - Read review comments
 - Generate fixes
 - Commit to your PR branch
@@ -140,6 +154,51 @@ Both changed     → Both CIs in parallel
 
 Saves 40% of CI time compared to running all tests.
 
+### 4. Automated Feature Suggestions
+
+Every Monday, Claude Code analyzes your codebase and suggests improvements:
+
+```
+Weekly Analysis (Monday 09:00)
+    ↓
+Claude analyzes codebase
+- New features
+- Code improvements
+- Automation opportunities
+- Documentation gaps
+    ↓
+GitHub Discussion created with suggestions
+    ↓
+Team provides feedback via comments
+    ↓
+@claude refine → Suggestion refined based on feedback
+    ↓
+Add "approved" label
+    ↓
+Detailed spec created in specs/
+    ↓
+Implementation PR generated automatically
+    ↓
+Code review & merge
+```
+
+**Available Commands in Discussions**:
+
+- `@claude refine [feedback]` - Refine suggestion based on your input
+- `@claude clarify [question]` - Get clarification on details
+- `@claude analyze` - Analyze feasibility and impact
+
+**Approval Process**:
+
+1. Review weekly suggestions in Discussions
+2. Comment with feedback or questions
+3. Add `approved` label when ready to implement
+4. Claude creates detailed specification
+5. Implementation PR generated automatically
+6. Review and merge as usual
+
+This creates a continuous improvement loop where your codebase evolves based on AI insights and team collaboration.
+
 ## Setup
 
 ### Prerequisites
@@ -151,11 +210,13 @@ Saves 40% of CI time compared to running all tests.
 ### Step 1: Generate OAuth Token
 
 1. Open Claude Code CLI:
+
    ```bash
    claude
    ```
 
 2. Run install command:
+
    ```
    /install-github-app
    ```
@@ -173,15 +234,46 @@ Saves 40% of CI time compared to running all tests.
    - Name: `CLAUDE_CODE_OAUTH_TOKEN`
    - Value: (token from step 1)
 
-### Step 3: Test Automation
+### Step 3: Enable GitHub Discussions
+
+For automated feature suggestions to work:
+
+1. Go to **Settings** → **General**
+2. Scroll to **Features** section
+3. Check **Discussions**
+4. Click **Set up discussions**
+5. Create categories:
+   - **Ideas** (or **General**) - For feature suggestions
+   - Add labels: `approved`, `rejected`, `in-review`
+
+**Get Discussion Category ID** (for workflows):
+
+```bash
+gh api graphql -f query='query {
+  repository(owner:"YOUR_OWNER",name:"YOUR_REPO"){
+    discussionCategories(first:10){
+      nodes{
+        id
+        name
+      }
+    }
+  }
+}'
+```
+
+Copy the `id` for your "Ideas" or "General" category and update it in:
+
+- `.github/workflows/weekly-feature-suggestions.yml` (line 91: `categoryId`)
+
+### Step 4: Test Automation
 
 Create a test PR with intentional issues:
 
 ```javascript
 // Example: code with issues
 function authenticate(user) {
-  const email = user.profile.email;  // null pointer risk
-  const token = Math.random();       // insecure
+  const email = user.profile.email; // null pointer risk
+  const token = Math.random(); // insecure
   return token;
 }
 ```
@@ -189,6 +281,7 @@ function authenticate(user) {
 Within 2 minutes, Claude Code will comment on the issues.
 
 Then try:
+
 ```
 @claude apply
 ```
@@ -221,6 +314,7 @@ npx npm-check-updates -u && npm install
 The template uses monthly updates to reduce noise. Adjust based on your project needs:
 
 Edit `.github/dependabot.yml`:
+
 ```yaml
 schedule:
   interval: "daily"    # Options: daily, weekly, monthly
@@ -264,16 +358,18 @@ See [example CLAUDE.md](.github/CLAUDE.md) for template.
 The template uses frontend/backend structure by default. To customize:
 
 1. **Rename directories** to match your structure:
+
    ```bash
    mv frontend web
    mv backend api
    ```
 
 2. **Update workflow path filters**:
+
    ```yaml
    # .github/workflows/frontend-ci.yml
    paths:
-     - 'web/**'  # was 'frontend/**'
+     - "web/**" # was 'frontend/**'
    ```
 
 3. **Adjust build commands** in CI workflows
@@ -290,10 +386,10 @@ The template uses frontend/backend structure by default. To customize:
 
 ### Available Commands
 
-| Command | Effect |
-|---------|--------|
-| `@claude apply` | Apply all review suggestions |
-| `@claude fix <issue>` | Fix specific issue |
+| Command                  | Effect                       |
+| ------------------------ | ---------------------------- |
+| `@claude apply`          | Apply all review suggestions |
+| `@claude fix <issue>`    | Fix specific issue           |
 | `@claude explain <code>` | Explain code without changes |
 
 ## Documentation
@@ -337,18 +433,18 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ### Claude Max Subscription
 
-| Item | Monthly Cost |
-|------|--------------|
-| Claude Max subscription (per user) | $20 |
-| Additional API costs | $0 (uses subscription) |
+| Item                               | Monthly Cost           |
+| ---------------------------------- | ---------------------- |
+| Claude Max subscription (per user) | $20                    |
+| Additional API costs               | $0 (uses subscription) |
 
 ### GitHub Actions
 
-| Item | Monthly Usage | Cost |
-|------|---------------|------|
-| CI pipelines (~500 PR updates) | ~1,000 min | $0 (free tier) |
-| Deployments (~40 merges) | ~200 min | $0 (free tier) |
-| **Total** | **~1,200 min** | **$0** |
+| Item                           | Monthly Usage  | Cost           |
+| ------------------------------ | -------------- | -------------- |
+| CI pipelines (~500 PR updates) | ~1,000 min     | $0 (free tier) |
+| Deployments (~40 merges)       | ~200 min       | $0 (free tier) |
+| **Total**                      | **~1,200 min** | **$0**         |
 
 **Total Monthly Cost**: Existing Claude Max subscription only
 
