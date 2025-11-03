@@ -41,7 +41,7 @@ jobs:
 
       # Alternative: Setup Python with caching (for Python backend)
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         if: hashFiles('backend/requirements.txt') != ''
         with:
           python-version: '3.11'
