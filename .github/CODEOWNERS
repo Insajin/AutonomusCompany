@@ -6,67 +6,72 @@
 #
 # Learn more: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
+# ⚠️  TEMPLATE SETUP REQUIRED
+# Replace @YOUR_GITHUB_USERNAME with your actual GitHub username(s)
+# You can specify multiple owners: @user1 @user2
+# You can use team names: @org/team-name
+
 # Global owners (fallback for everything not specified)
-* @Insajin
+* @YOUR_GITHUB_USERNAME
 
 # Frontend
-/frontend/ @Insajin
-/frontend/src/components/ @Insajin
-/frontend/src/pages/ @Insajin
-/frontend/src/lib/ @Insajin
+/frontend/ @YOUR_GITHUB_USERNAME
+/frontend/src/components/ @YOUR_GITHUB_USERNAME
+/frontend/src/pages/ @YOUR_GITHUB_USERNAME
+/frontend/src/lib/ @YOUR_GITHUB_USERNAME
 
 # Backend
-/backend/ @Insajin
-/backend/src/api/ @Insajin
-/backend/src/domain/ @Insajin
-/backend/src/repository/ @Insajin
+/backend/ @YOUR_GITHUB_USERNAME
+/backend/src/api/ @YOUR_GITHUB_USERNAME
+/backend/src/domain/ @YOUR_GITHUB_USERNAME
+/backend/src/repository/ @YOUR_GITHUB_USERNAME
 
 # CI/CD and GitHub Actions
-/.github/workflows/ @Insajin
-/.github/actions/ @Insajin
-/scripts/ @Insajin
+/.github/workflows/ @YOUR_GITHUB_USERNAME
+/.github/actions/ @YOUR_GITHUB_USERNAME
+/scripts/ @YOUR_GITHUB_USERNAME
 
 # Configuration files
-*.yml @Insajin
-*.yaml @Insajin
-*.json @Insajin
-.env.example @Insajin
-Dockerfile @Insajin
-docker-compose.yml @Insajin
+*.yml @YOUR_GITHUB_USERNAME
+*.yaml @YOUR_GITHUB_USERNAME
+*.json @YOUR_GITHUB_USERNAME
+.env.example @YOUR_GITHUB_USERNAME
+Dockerfile @YOUR_GITHUB_USERNAME
+docker-compose.yml @YOUR_GITHUB_USERNAME
 
 # Documentation
-/docs/ @Insajin
-*.md @Insajin
-README.md @Insajin
-CLAUDE.md @Insajin
+/docs/ @YOUR_GITHUB_USERNAME
+*.md @YOUR_GITHUB_USERNAME
+README.md @YOUR_GITHUB_USERNAME
+CLAUDE.md @YOUR_GITHUB_USERNAME
 
 # Database
-/migrations/ @Insajin
-/backend/src/repository/ @Insajin
-**/schema/ @Insajin
+/migrations/ @YOUR_GITHUB_USERNAME
+/backend/src/repository/ @YOUR_GITHUB_USERNAME
+**/schema/ @YOUR_GITHUB_USERNAME
 
 # Tests
-**/*.test.* @Insajin
-**/*.spec.* @Insajin
-/tests/ @Insajin
+**/*.test.* @YOUR_GITHUB_USERNAME
+**/*.spec.* @YOUR_GITHUB_USERNAME
+/tests/ @YOUR_GITHUB_USERNAME
 
 # Security-sensitive files (require extra review)
-/backend/src/api/middleware/auth* @Insajin
-/backend/src/config/security* @Insajin
-/.github/workflows/*security* @Insajin
-/.github/workflows/*codeql* @Insajin
+/backend/src/api/middleware/auth* @YOUR_GITHUB_USERNAME
+/backend/src/config/security* @YOUR_GITHUB_USERNAME
+/.github/workflows/*security* @YOUR_GITHUB_USERNAME
+/.github/workflows/*codeql* @YOUR_GITHUB_USERNAME
 
 # Package dependencies (require careful review)
-package.json @Insajin
-package-lock.json @Insajin
-go.mod @Insajin
-go.sum @Insajin
-requirements.txt @Insajin
+package.json @YOUR_GITHUB_USERNAME
+package-lock.json @YOUR_GITHUB_USERNAME
+go.mod @YOUR_GITHUB_USERNAME
+go.sum @YOUR_GITHUB_USERNAME
+requirements.txt @YOUR_GITHUB_USERNAME
 
 # Build and deployment
-/frontend/.next/ @Insajin
-/backend/dist/ @Insajin
-/backend/build/ @Insajin
+/frontend/.next/ @YOUR_GITHUB_USERNAME
+/backend/dist/ @YOUR_GITHUB_USERNAME
+/backend/build/ @YOUR_GITHUB_USERNAME
 
 # Note: Add more team members as the project grows
 # Example:

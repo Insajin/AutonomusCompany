@@ -1,11 +1,20 @@
 # AI-Powered Monorepo Automation Template
 
-[![CodeQL](https://github.com/Insajin/AutonomusCompany/workflows/CodeQL%20Security%20Analysis/badge.svg)](https://github.com/Insajin/AutonomusCompany/actions/workflows/codeql.yml)
-[![Frontend CI](https://github.com/Insajin/AutonomusCompany/workflows/Frontend%20CI/badge.svg)](https://github.com/Insajin/AutonomusCompany/actions/workflows/frontend-ci.yml)
-[![Backend CI](https://github.com/Insajin/AutonomusCompany/workflows/Backend%20CI/badge.svg)](https://github.com/Insajin/AutonomusCompany/actions/workflows/backend-ci.yml)
+<!--
+⚠️  TEMPLATE SETUP: After creating your repository from this template, update these badges:
+1. Replace YOUR_USERNAME with your GitHub username
+2. Replace YOUR_REPO_NAME with your repository name
+3. Or remove these badges if not needed
+-->
+
+[![CodeQL](https://github.com/YOUR_USERNAME/YOUR_REPO_NAME/workflows/CodeQL%20Security%20Analysis/badge.svg)](https://github.com/YOUR_USERNAME/YOUR_REPO_NAME/actions/workflows/codeql.yml)
+[![Frontend CI](https://github.com/YOUR_USERNAME/YOUR_REPO_NAME/workflows/Frontend%20CI/badge.svg)](https://github.com/YOUR_USERNAME/YOUR_REPO_NAME/actions/workflows/frontend-ci.yml)
+[![Backend CI](https://github.com/YOUR_USERNAME/YOUR_REPO_NAME/workflows/Backend%20CI/badge.svg)](https://github.com/YOUR_USERNAME/YOUR_REPO_NAME/actions/workflows/backend-ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A comprehensive GitHub repository template that automates development workflows for monorepo projects using Claude Code AI.
+A comprehensive GitHub repository template that automates development workflows using Claude Code AI. Works with monorepo or single-project structures, supporting multiple languages (Node.js, Python, Go, etc.).
+
+> **🎯 Quick Start**: See [SETUP.md](SETUP.md) for detailed setup instructions after creating your repository from this template.
 
 ## Features
 
@@ -63,14 +72,19 @@ A comprehensive GitHub repository template that automates development workflows 
 
 Get up and running in 15-30 minutes:
 
-**[→ See Full Quickstart Guide](specs/001-ai-monorepo-template/quickstart.md)**
+**[→ See Detailed Setup Guide (SETUP.md)](SETUP.md)** - Complete step-by-step instructions
+
+**[→ See Full Quickstart Guide](specs/001-ai-monorepo-template/quickstart.md)** - Feature documentation
 
 ### TL;DR
 
 1. **Use this template** to create your repository
-2. **Add Claude Code OAuth token** to repository secrets (`CLAUDE_CODE_OAUTH_TOKEN`)
-3. **Customize structure** for your project (optional)
-4. **Create a test PR** to see automation in action
+2. **Update configuration files** (see [SETUP.md](SETUP.md) for details)
+   - `.github/CODEOWNERS` - Replace `@YOUR_GITHUB_USERNAME`
+   - `README.md` - Update badge URLs
+3. **Add Claude Code OAuth token** to repository secrets (`CLAUDE_CODE_OAUTH_TOKEN`)
+4. **Customize structure** for your project (rename workspaces, adjust workflows)
+5. **Create a test PR** to see automation in action
 
 ## What's Included
 

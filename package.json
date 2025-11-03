@@ -1,4 +1,5 @@
 {
+  "//": "⚠️  TEMPLATE SETUP: Update 'name' and 'description' for your project",
   "name": "ai-monorepo-template",
   "version": "1.0.0",
   "private": true,
@@ -11,6 +12,7 @@
     "validate": "npm run lint && npm run test",
     "setup": "chmod +x scripts/*.sh && ./scripts/setup-dev.sh"
   },
+  "//workspaces": "To rename workspaces: 1) Rename directories, 2) Update this array, 3) Update workflow paths in .github/workflows/*.yml",
   "workspaces": [
     "frontend",
     "backend"
@@ -34,6 +36,7 @@
       "prettier --write"
     ]
   },
+  "//engines": "Adjust these requirements based on your project needs. For other languages (Python, Go, etc.), you can remove this package.json entirely.",
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
