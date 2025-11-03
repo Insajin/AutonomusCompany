@@ -411,10 +411,26 @@ Specifically interested in:
 
 **Solutions**:
 
+**Quick Fix - Automated Setup**:
+
+```bash
+./scripts/setup-discussions.sh
+```
+
+This will automatically:
+
+- Enable Discussions
+- Create required labels
+- Get and configure category ID
+- Verify everything works
+
+**Manual Fix**:
+
 1. Enable Discussions in Settings → General → Features
 2. Get category ID: `gh api graphql -f query='...'` (see README)
-3. Check Claude Max subscription status
-4. Regenerate OAuth token with `/install-github-app`
+3. Update `.github/workflows/weekly-feature-suggestions.yml`
+4. Check Claude Max subscription status
+5. Regenerate OAuth token with `/install-github-app`
 
 #### Refinement Commands Not Working
 

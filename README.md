@@ -236,17 +236,38 @@ This creates a continuous improvement loop where your codebase evolves based on 
 
 ### Step 3: Enable GitHub Discussions
 
-For automated feature suggestions to work:
+#### Option A: Automatic Setup (Recommended)
+
+Run the automated setup script:
+
+```bash
+./scripts/setup-discussions.sh
+```
+
+This script will:
+
+- ✅ Enable GitHub Discussions
+- ✅ Create required labels (`approved`, `rejected`, `ai-generated`)
+- ✅ Get Discussion category ID automatically
+- ✅ Update workflow configuration
+- ✅ Verify everything is set up correctly
+
+**One command, fully configured!**
+
+#### Option B: Manual Setup
+
+If you prefer manual setup:
 
 1. Go to **Settings** → **General**
 2. Scroll to **Features** section
 3. Check **Discussions**
 4. Click **Set up discussions**
-5. Create categories:
-   - **Ideas** (or **General**) - For feature suggestions
-   - Add labels: `approved`, `rejected`, `in-review`
+5. Create labels:
+   - `approved` (green) - Approved feature suggestions
+   - `rejected` (red) - Rejected suggestions
+   - `ai-generated` (blue) - AI-generated content
 
-**Get Discussion Category ID** (for workflows):
+6. **Get Discussion Category ID**:
 
 ```bash
 gh api graphql -f query='query {
@@ -261,9 +282,8 @@ gh api graphql -f query='query {
 }'
 ```
 
-Copy the `id` for your "Ideas" or "General" category and update it in:
-
-- `.github/workflows/weekly-feature-suggestions.yml` (line 91: `categoryId`)
+7. Copy the `id` for your "Ideas" or "General" category
+8. Update `.github/workflows/weekly-feature-suggestions.yml` (line 91: `categoryId`)
 
 ### Step 4: Test Automation
 

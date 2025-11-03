@@ -88,14 +88,43 @@ if [ -f "scripts/validate-config.sh" ]; then
     ./scripts/validate-config.sh
 fi
 
+# Setup GitHub Discussions (optional)
+echo ""
+echo "🎯 GitHub Discussions Setup"
+echo ""
+echo "This template includes automated feature suggestion workflows that require GitHub Discussions."
+echo ""
+read -p "Do you want to set up GitHub Discussions now? (y/n) " -n 1 -r
+echo ""
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo ""
+    if [ -f "scripts/setup-discussions.sh" ]; then
+        chmod +x scripts/setup-discussions.sh
+        ./scripts/setup-discussions.sh
+    else
+        echo -e "${YELLOW}⚠${NC} setup-discussions.sh not found"
+        echo "You can set it up manually later by running: ./scripts/setup-discussions.sh"
+    fi
+else
+    echo ""
+    echo -e "${YELLOW}ℹ${NC} Skipping Discussions setup"
+    echo "You can set it up later by running: ./scripts/setup-discussions.sh"
+fi
+
 echo ""
 echo -e "${GREEN}✅ Development environment setup complete!${NC}"
 echo ""
 echo "📚 Next steps:"
 echo "1. Update .env files with your actual values"
 echo "2. Configure GitHub secrets (CLAUDE_CODE_OAUTH_TOKEN)"
-echo "3. Run 'npm run dev' in frontend/ or backend/ to start development"
-echo "4. Read CONTRIBUTING.md for development guidelines"
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "3. Set up GitHub Discussions: ./scripts/setup-discussions.sh"
+    echo "4. Run 'npm run dev' in frontend/ or backend/ to start development"
+    echo "5. Read CONTRIBUTING.md for development guidelines"
+else
+    echo "3. Run 'npm run dev' in frontend/ or backend/ to start development"
+    echo "4. Read CONTRIBUTING.md for development guidelines"
+fi
 echo ""
 echo "💡 Useful commands:"
 echo "  npm run lint       - Lint all workspaces"

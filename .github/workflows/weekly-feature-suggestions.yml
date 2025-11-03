@@ -120,7 +120,7 @@ jobs:
                 repositoryId: context.payload.repository.node_id,
                 // Note: You'll need to get the category ID for your "Ideas" or "General" discussion category
                 // Run: gh api graphql -f query='query {repository(owner:"OWNER",name:"REPO"){discussionCategories(first:10){nodes{id name}}}}'
-                categoryId: 'DIC_kwDONYXGNs4ClOQp', // Replace with your actual category ID
+                categoryId: 'DIC_kwDOQNJ8sc4CxYdK', // Replace with your actual category ID
                 title: `Weekly Feature Suggestions - ${today}`,
                 body: discussionBody
               });
