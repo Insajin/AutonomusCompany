@@ -39,9 +39,10 @@ A comprehensive GitHub repository template that automates development workflows 
 - **Documentation** - Templates, guides, and examples
 
 ### 📦 Dependency Management
-- **Dependabot** - Weekly automated dependency updates
-- **Multiple Ecosystems** - npm, Python, GitHub Actions
+- **Dependabot** - Monthly automated dependency updates + immediate security alerts
+- **Multiple Ecosystems** - npm, Go, GitHub Actions, Docker
 - **Smart Grouping** - Separate PRs per component
+- **Template-Optimized** - Maintains stable versions for new projects
 
 ### 💰 Cost Optimization
 - **No API Costs** - Uses Claude Max subscription (OAuth)
@@ -193,6 +194,56 @@ Then try:
 ```
 
 Claude will commit fixes automatically.
+
+## Using This Template
+
+### After Forking or Cloning
+
+Once you've created your repository from this template:
+
+#### 1. Update Dependencies (Recommended)
+
+This template maintains stable versions to ensure compatibility. Update to latest versions based on your needs:
+
+```bash
+# Check for outdated packages
+npm outdated
+
+# Update all dependencies to latest stable
+npm update
+
+# Or update to latest (including major versions)
+npx npm-check-updates -u && npm install
+```
+
+#### 2. Configure Dependabot Schedule
+
+The template uses monthly updates to reduce noise. Adjust based on your project needs:
+
+Edit `.github/dependabot.yml`:
+```yaml
+schedule:
+  interval: "daily"    # Options: daily, weekly, monthly
+  # or
+  interval: "weekly"
+  day: "monday"
+```
+
+#### 3. Enable Security Updates
+
+**Important**: Dependabot security updates work independently of the schedule:
+
+1. Go to **Settings** → **Security & analysis**
+2. Enable **Dependabot security updates**
+3. Security vulnerabilities will create PRs immediately, regardless of schedule
+
+#### 4. Review Workflows
+
+Some workflows are optimized for template maintenance. You may want to:
+
+- Adjust CI triggers for your workflow
+- Customize review focus in `.github/CLAUDE.md`
+- Update deployment targets in `deploy.yml`
 
 ## Configuration
 
