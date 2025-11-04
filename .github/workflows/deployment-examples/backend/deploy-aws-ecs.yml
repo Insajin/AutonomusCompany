@@ -1,0 +1,107 @@
+# ⚠️  DEPLOYMENT EXAMPLE: AWS ECS (Elastic Container Service)
+#
+# 📌 HOW TO USE THIS FILE:
+# 1. Create ECS cluster, task definition, and service in AWS
+# 2. Create ECR repository for Docker images
+# 3. Copy to: .github/workflows/deploy-aws-ecs.yml
+# 4. Add required secrets (see below)
+# 5. Update cluster/service/task names
+# 6. Push to trigger deployment
+#
+# 📋 REQUIRED SECRETS (Settings > Secrets and variables > Actions):
+#   - AWS_ACCESS_KEY_ID: IAM user access key
+#   - AWS_SECRET_ACCESS_KEY: IAM user secret key
+#   - AWS_REGION: e.g., us-east-1
+#   - ECR_REPOSITORY: ECR repository name
+#   - ECS_CLUSTER: ECS cluster name
+#   - ECS_SERVICE: ECS service name
+#   - ECS_TASK_DEFINITION: Task definition family name
+#
+# 📚 Documentation: https://docs.aws.amazon.com/ecs/
+# 💰 Pricing: Pay-as-you-go ($0.04048/hour per vCPU, $0.004445/hour per GB memory)
+# ⚡ Benefits:
+#   - Highly scalable and reliable
+#   - Full AWS integration (RDS, ElastiCache, etc.)
+#   - Auto-scaling and load balancing
+#   - Production-grade container orchestration
+# ⚠️  Considerations:
+#   - Complex setup
+#   - More expensive than simpler alternatives
+#   - Requires AWS expertise
+
+name: Deploy to AWS ECS
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '!backend/**/*.md'
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy Backend to ECS
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          cd backend
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Download task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition ${{ secrets.ECS_TASK_DEFINITION }} \
+            --query taskDefinition > task-definition.json
+
+      - name: Update task definition with new image
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: app  # Update to match your container name
+          image: ${{ steps.build-image.outputs.image }}
+
+      - name: Deploy to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ secrets.ECS_SERVICE }}
+          cluster: ${{ secrets.ECS_CLUSTER }}
+          wait-for-service-stability: true
+
+      - name: Report deployment
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Successfully deployed to ECS"
+            echo "🚀 New task is running in production"
+          else
+            echo "❌ Deployment to ECS failed"
+          fi

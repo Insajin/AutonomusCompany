@@ -1,12 +1,23 @@
 name: Deploy
 
 # ⚠️  TEMPLATE SETUP NOTES:
-# 1. If you don't need deployment, you can DELETE this file
-# 2. Configure required secrets in GitHub repository settings (Settings > Secrets and variables > Actions)
-# 3. For Vercel: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID
-# 4. For Docker: DOCKER_USERNAME, DOCKER_PASSWORD
-# 5. The workflow will skip if secrets are not configured
-
+# This is a basic deployment workflow for Vercel (frontend) + Docker Hub (backend).
+#
+# 📚 For other platforms (AWS, Railway, Netlify, etc.):
+#    See: .github/workflows/deployment-examples/README.md
+#    - 14+ ready-to-use deployment examples
+#    - Detailed platform comparison and selection guide
+#    - Copy the workflow you need to .github/workflows/
+#
+# 🔧 To use this workflow:
+# 1. Configure required secrets in GitHub repository settings
+#    (Settings > Secrets and variables > Actions)
+# 2. For Vercel: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID
+# 3. For Docker Hub: DOCKER_USERNAME, DOCKER_PASSWORD
+# 4. The workflow will skip if secrets are not configured
+#
+# 🗑️  If you don't need deployment: DELETE this file
+#
 # Deploy when code is merged to main
 on:
   push:

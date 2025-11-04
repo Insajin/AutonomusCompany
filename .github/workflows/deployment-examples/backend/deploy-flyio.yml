@@ -1,0 +1,65 @@
+# ⚠️  DEPLOYMENT EXAMPLE: Fly.io (Backend)
+#
+# 📌 HOW TO USE THIS FILE:
+# 1. Install Fly CLI and create app: fly launch
+# 2. Copy to: .github/workflows/deploy-flyio.yml
+# 3. Add required secrets (see below)
+# 4. Ensure Dockerfile exists in backend/
+# 5. Push to trigger deployment
+#
+# 📋 REQUIRED SECRETS (Settings > Secrets and variables > Actions):
+#   - FLY_API_TOKEN: Get from fly auth token
+#
+# 📚 Documentation: https://fly.io/docs/
+# 💰 Pricing: Free allowance (3 shared VMs, 160 GB transfer), then $1.94/month per VM
+# ⚡ Benefits:
+#   - Deploy to 30+ regions globally
+#   - Low latency worldwide
+#   - Built-in load balancing
+#   - Great for real-time applications
+# ⚠️  Considerations:
+#   - Requires Dockerfile
+#   - CLI-focused workflow
+#   - Smaller ecosystem than AWS/GCP
+
+name: Deploy to Fly.io
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '!backend/**/*.md'
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy Backend to Fly.io
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Fly CLI
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to Fly.io
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          cd backend
+          flyctl deploy --remote-only
+
+      - name: Report deployment
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Successfully deployed to Fly.io"
+            echo "🌍 Your app is now running globally"
+          else
+            echo "❌ Deployment to Fly.io failed"
+          fi

@@ -1,0 +1,92 @@
+# ⚠️  DEPLOYMENT EXAMPLE: GitHub Container Registry (GHCR)
+#
+# 📌 HOW TO USE THIS FILE:
+# 1. Enable GitHub Container Registry for your repository
+# 2. Copy to: .github/workflows/deploy-docker-ghcr.yml
+# 3. Ensure Dockerfile exists in backend/
+# 4. Push to trigger build and push
+#
+# 📋 REQUIRED SECRETS:
+#   - GITHUB_TOKEN: Automatically provided (no setup needed!)
+#
+# 📚 Documentation: https://docs.github.com/packages/working-with-a-github-packages-registry/working-with-the-container-registry
+# 💰 Pricing: Free for public repositories, 500MB free for private
+# ⚡ Benefits:
+#   - Completely free for public repos
+#   - Integrated with GitHub
+#   - No external account needed
+#   - Automatic cleanup of old images
+# ⚠️  Considerations:
+#   - GitHub-specific (not portable)
+#   - Storage limits on free tier
+
+name: Build and Push to GHCR
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '!backend/**/*.md'
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Report build
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Successfully built and pushed to GHCR"
+            echo "📦 Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+            echo "🏷️  Tags: ${{ steps.meta.outputs.tags }}"
+          else
+            echo "❌ Failed to build and push to GHCR"
+          fi

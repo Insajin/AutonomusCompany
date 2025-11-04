@@ -62,6 +62,26 @@ A comprehensive GitHub repository template that automates development workflows 
 - **Smart Grouping** - Separate PRs per component
 - **Template-Optimized** - Maintains stable versions for new projects
 
+### 🚀 Deployment Options (14+ Platforms)
+
+**Frontend:**
+
+- Vercel, Netlify, AWS S3+CloudFront, AWS Amplify, GitHub Pages
+
+**Backend:**
+
+- Railway, Render, Fly.io, AWS ECS, GCP Cloud Run
+
+**Fullstack:**
+
+- Supabase, Azure Web App
+
+**Docker Registries:**
+
+- GitHub Container Registry (GHCR), AWS ECR, Docker Hub
+
+**[→ See All Deployment Examples](.github/workflows/deployment-examples/README.md)** - Ready-to-use workflows with setup guides
+
 ### 💰 Cost Optimization
 
 - **No API Costs** - Uses Claude Max subscription (OAuth)

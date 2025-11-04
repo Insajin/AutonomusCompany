@@ -1,0 +1,81 @@
+# ⚠️  DEPLOYMENT EXAMPLE: Azure Web App (Fullstack)
+#
+# 📌 HOW TO USE THIS FILE:
+# 1. Create Web App in Azure Portal
+# 2. Setup deployment credentials
+# 3. Copy to: .github/workflows/deploy-azure-webapp.yml
+# 4. Add required secrets (see below)
+# 5. Push to trigger deployment
+#
+# 📋 REQUIRED SECRETS (Settings > Secrets and variables > Actions):
+#   - AZURE_WEBAPP_NAME: Web App name
+#   - AZURE_WEBAPP_PUBLISH_PROFILE: Download from Azure Portal > Web App > Get publish profile
+#
+# 📚 Documentation: https://docs.microsoft.com/azure/app-service/
+# 💰 Pricing: Free tier (F1, limited), then ~$13/month (B1 Basic)
+# ⚡ Benefits:
+#   - Integrated with Microsoft ecosystem
+#   - Built-in CI/CD
+#   - Auto-scaling and load balancing
+#   - Supports multiple languages (.NET, Node.js, Python, Java)
+# ⚠️  Considerations:
+#   - Azure-specific tooling
+#   - Free tier very limited (60 min CPU/day)
+#   - Less popular than AWS/GCP
+
+name: Deploy to Azure Web App
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '!backend/**/*.md'
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to Azure Web App
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci --production
+
+      - name: Build application
+        working-directory: backend
+        run: |
+          if [ -f "package.json" ] && grep -q "\"build\"" package.json; then
+            npm run build
+          fi
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./backend
+
+      - name: Report deployment
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Successfully deployed to Azure Web App"
+            echo "🌐 App URL: https://${{ secrets.AZURE_WEBAPP_NAME }}.azurewebsites.net"
+          else
+            echo "❌ Deployment to Azure Web App failed"
+          fi

@@ -1,0 +1,80 @@
+# ⚠️  DEPLOYMENT EXAMPLE: Vercel (Frontend)
+#
+# 📌 HOW TO USE THIS FILE:
+# 1. Copy to: .github/workflows/deploy-vercel.yml
+# 2. Add required secrets (see below)
+# 3. Adjust paths and settings for your project
+# 4. Push to trigger deployment
+#
+# 📋 REQUIRED SECRETS (Settings > Secrets and variables > Actions):
+#   - VERCEL_TOKEN: Get from https://vercel.com/account/tokens
+#   - VERCEL_ORG_ID: Found in Vercel project settings
+#   - VERCEL_PROJECT_ID: Found in Vercel project settings
+#
+# 📚 Documentation: https://vercel.com/docs
+# 💰 Pricing: Free tier available, then $20/month per team member
+# ⚡ Benefits:
+#   - Optimized for Next.js (same company)
+#   - Automatic preview deployments for PRs
+#   - Built-in analytics and performance monitoring
+#   - Global CDN with automatic SSL
+# ⚠️  Considerations:
+#   - Serverless functions have cold starts
+#   - Build time limits on free tier
+
+name: Deploy to Vercel
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '!frontend/**/*.md'
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy Frontend to Vercel
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build application
+        working-directory: frontend
+        run: npm run build
+        env:
+          CI: true
+
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: frontend
+          vercel-args: '--prod'
+
+      - name: Report deployment
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Successfully deployed to Vercel"
+          else
+            echo "❌ Deployment to Vercel failed"
+          fi

@@ -1,0 +1,81 @@
+# ⚠️  DEPLOYMENT EXAMPLE: AWS Amplify (Fullstack Frontend)
+#
+# 📌 HOW TO USE THIS FILE:
+# 1. Create Amplify app in AWS Console
+# 2. Connect GitHub repository
+# 3. Copy to: .github/workflows/deploy-aws-amplify.yml
+# 4. Add required secrets (see below)
+# 5. Push to trigger deployment
+#
+# 📋 REQUIRED SECRETS (Settings > Secrets and variables > Actions):
+#   - AWS_ACCESS_KEY_ID: IAM user access key
+#   - AWS_SECRET_ACCESS_KEY: IAM user secret key
+#   - AWS_REGION: e.g., us-east-1
+#   - AMPLIFY_APP_ID: Found in Amplify console
+#
+# 📚 Documentation: https://docs.aws.amazon.com/amplify/
+# 💰 Pricing: Pay-as-you-go (build: $0.01/min, hosting: $0.15/GB)
+# ⚡ Benefits:
+#   - Fullstack deployment (frontend + serverless backend)
+#   - Built-in authentication and GraphQL
+#   - Preview environments for PRs
+#   - Integrated with other AWS services
+# ⚠️  Considerations:
+#   - AWS-specific (vendor lock-in)
+#   - More expensive than static hosting
+#   - Learning curve for Amplify ecosystem
+
+name: Deploy to AWS Amplify
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '!frontend/**/*.md'
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy Frontend to Amplify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Trigger Amplify build
+        run: |
+          aws amplify start-job \
+            --app-id ${{ secrets.AMPLIFY_APP_ID }} \
+            --branch-name main \
+            --job-type RELEASE
+
+      - name: Wait for deployment
+        run: |
+          echo "⏳ Amplify is building and deploying..."
+          echo "📊 Check status at: https://console.aws.amazon.com/amplify/"
+
+      - name: Report deployment
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Successfully triggered Amplify deployment"
+          else
+            echo "❌ Failed to trigger Amplify deployment"
+          fi

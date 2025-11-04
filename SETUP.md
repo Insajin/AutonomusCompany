@@ -490,6 +490,68 @@ npm install
 
 ---
 
+## Deployment Platform Selection
+
+The template includes deployment examples for 14+ platforms. Choose the one that fits your needs.
+
+### Quick Selection Guide
+
+**For Quick Prototypes/MVPs:**
+
+- Frontend: GitHub Pages (free), Vercel (easy)
+- Backend: Railway (easy + database), Render (free tier)
+
+**For Production:**
+
+- Small-Medium: Vercel + Railway or Render
+- Enterprise: AWS (ECS + S3 + CloudFront) or GCP
+- Global: Fly.io (30+ regions)
+
+**For Specific Needs:**
+
+- PostgreSQL + Auth: Supabase
+- Microsoft Stack: Azure Web App
+- Container Registry: GitHub Container Registry (free)
+
+### Available Deployment Examples
+
+All examples are in `.github/workflows/deployment-examples/`
+
+| Category      | Platforms                                          | Free Tier  | Setup Time |
+| ------------- | -------------------------------------------------- | ---------- | ---------- |
+| **Frontend**  | Vercel, Netlify, AWS S3, AWS Amplify, GitHub Pages | ✅ Most    | 2-15 min   |
+| **Backend**   | Railway, Render, Fly.io, AWS ECS, GCP Cloud Run    | ✅ Some    | 5-20 min   |
+| **Fullstack** | Supabase, Azure Web App                            | ✅ Limited | 10-15 min  |
+| **Docker**    | GHCR, AWS ECR                                      | ✅ GHCR    | 3-10 min   |
+
+### How to Use Deployment Examples
+
+1. **Browse examples**: Check `.github/workflows/deployment-examples/README.md`
+2. **Choose platform**: See comparison tables and selection guide
+3. **Copy workflow**:
+   ```bash
+   cp .github/workflows/deployment-examples/frontend/deploy-vercel.yml \
+      .github/workflows/deploy-vercel.yml
+   ```
+4. **Configure secrets**: Each workflow lists required secrets at the top
+5. **Customize paths**: Adjust project paths and build commands
+6. **Push and deploy**: Commit and push to trigger deployment
+
+### Detailed Deployment Guide
+
+**📖 See**: `.github/workflows/deployment-examples/README.md`
+
+This comprehensive guide includes:
+
+- ✅ Platform comparison tables
+- ✅ Cost and feature breakdown
+- ✅ Step-by-step setup instructions
+- ✅ Platform-specific tips
+- ✅ Troubleshooting common issues
+- ✅ Recommended platform combinations
+
+---
+
 ## Next Steps
 
 After completing setup:

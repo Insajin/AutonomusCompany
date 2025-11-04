@@ -1,0 +1,65 @@
+# ⚠️  DEPLOYMENT EXAMPLE: Railway (Backend)
+#
+# 📌 HOW TO USE THIS FILE:
+# 1. Create project in Railway (https://railway.app)
+# 2. Connect your GitHub repository
+# 3. Copy to: .github/workflows/deploy-railway.yml
+# 4. Add required secrets (see below)
+# 5. Push to trigger deployment
+#
+# 📋 REQUIRED SECRETS (Settings > Secrets and variables > Actions):
+#   - RAILWAY_TOKEN: Get from Railway dashboard > Account > Tokens
+#   - RAILWAY_PROJECT_ID: Found in project settings
+#
+# 📚 Documentation: https://docs.railway.app/
+# 💰 Pricing: $5/month free credit, then $0.000231/GB-hour + $0.10/GB egress
+# ⚡ Benefits:
+#   - Extremely easy setup (one-click deploy)
+#   - Databases included (PostgreSQL, MySQL, Redis, MongoDB)
+#   - Automatic HTTPS and preview environments
+#   - Great for prototypes and MVPs
+# ⚠️  Considerations:
+#   - Free tier limited to 500 hours/month
+#   - More expensive than some alternatives at scale
+
+name: Deploy to Railway
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '!backend/**/*.md'
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy Backend to Railway
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          railway link ${{ secrets.RAILWAY_PROJECT_ID }}
+          railway up --detach
+
+      - name: Report deployment
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Successfully deployed to Railway"
+            echo "🚂 Check your deployment at https://railway.app/dashboard"
+          else
+            echo "❌ Deployment to Railway failed"
+          fi

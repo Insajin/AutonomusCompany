@@ -1,0 +1,68 @@
+# ⚠️  DEPLOYMENT EXAMPLE: Render (Backend)
+#
+# 📌 HOW TO USE THIS FILE:
+# 1. Create web service in Render (https://render.com)
+# 2. Connect your GitHub repository
+# 3. Copy to: .github/workflows/deploy-render.yml
+# 4. Add required secrets (see below)
+# 5. Push to trigger deployment
+#
+# 📋 REQUIRED SECRETS (Settings > Secrets and variables > Actions):
+#   - RENDER_API_KEY: Get from Render dashboard > Account Settings > API Keys
+#   - RENDER_SERVICE_ID: Found in service settings URL
+#
+# 📚 Documentation: https://render.com/docs
+# 💰 Pricing: True free tier (no time limit), then $7/month per service
+# ⚡ Benefits:
+#   - Generous free tier (doesn't expire)
+#   - Automatic SSL certificates
+#   - Easy database hosting
+#   - Great documentation
+# ⚠️  Considerations:
+#   - Free tier spins down after 15 min inactivity (slow cold starts ~1 min)
+#   - Limited regions compared to AWS/GCP
+
+name: Deploy to Render
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '!backend/**/*.md'
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy Backend to Render
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Trigger Render deployment
+        run: |
+          curl -X POST "https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID }}/deploys" \
+            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{}'
+
+      - name: Wait for deployment
+        run: |
+          echo "⏳ Render is deploying your service..."
+          echo "📊 Check status at: https://dashboard.render.com"
+          echo "ℹ️  Deployment typically takes 2-5 minutes"
+
+      - name: Report deployment
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Successfully triggered Render deployment"
+            echo "🌐 Service will be live shortly"
+          else
+            echo "❌ Failed to trigger Render deployment"
+          fi

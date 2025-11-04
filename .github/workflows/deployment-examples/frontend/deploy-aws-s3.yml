@@ -1,0 +1,105 @@
+# ⚠️  DEPLOYMENT EXAMPLE: AWS S3 + CloudFront (Static Frontend)
+#
+# 📌 HOW TO USE THIS FILE:
+# 1. Create S3 bucket and CloudFront distribution in AWS
+# 2. Copy to: .github/workflows/deploy-aws-s3.yml
+# 3. Add required secrets (see below)
+# 4. Adjust bucket name and distribution ID
+# 5. Push to trigger deployment
+#
+# 📋 REQUIRED SECRETS (Settings > Secrets and variables > Actions):
+#   - AWS_ACCESS_KEY_ID: IAM user access key
+#   - AWS_SECRET_ACCESS_KEY: IAM user secret key
+#   - AWS_REGION: e.g., us-east-1
+#   - S3_BUCKET_NAME: Your S3 bucket name
+#   - CLOUDFRONT_DISTRIBUTION_ID: (Optional) For cache invalidation
+#
+# 📚 Documentation: https://docs.aws.amazon.com/s3/
+# 💰 Pricing: Pay-as-you-go (~$0.023/GB storage, $0.085/GB transfer)
+# ⚡ Benefits:
+#   - Highly scalable and reliable
+#   - Global CDN with CloudFront
+#   - Full AWS ecosystem integration
+#   - Fine-grained access control
+# ⚠️  Considerations:
+#   - More complex setup
+#   - Costs can add up with high traffic
+#   - Requires AWS knowledge
+
+name: Deploy to AWS S3
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '!frontend/**/*.md'
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy Frontend to S3
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build application
+        working-directory: frontend
+        run: npm run build
+        env:
+          CI: true
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Sync build to S3
+        run: |
+          aws s3 sync frontend/out s3://${{ secrets.S3_BUCKET_NAME }} \
+            --delete \
+            --cache-control "max-age=31536000,public" \
+            --exclude "*.html" \
+            --exclude "*.json"
+
+          aws s3 sync frontend/out s3://${{ secrets.S3_BUCKET_NAME }} \
+            --delete \
+            --cache-control "max-age=0,must-revalidate" \
+            --exclude "*" \
+            --include "*.html" \
+            --include "*.json"
+
+      - name: Invalidate CloudFront cache
+        if: secrets.CLOUDFRONT_DISTRIBUTION_ID != ''
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
+
+      - name: Report deployment
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Successfully deployed to S3"
+            echo "🌍 CloudFront cache invalidated"
+          else
+            echo "❌ Deployment to S3 failed"
+          fi

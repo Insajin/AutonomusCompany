@@ -1,0 +1,90 @@
+# ⚠️  DEPLOYMENT EXAMPLE: Supabase (Backend-as-a-Service)
+#
+# 📌 HOW TO USE THIS FILE:
+# 1. Create project in Supabase (https://supabase.com)
+# 2. Setup Supabase CLI: https://supabase.com/docs/guides/cli
+# 3. Copy to: .github/workflows/deploy-supabase.yml
+# 4. Add required secrets (see below)
+# 5. Ensure supabase/ directory with migrations exists
+# 6. Push to trigger deployment
+#
+# 📋 REQUIRED SECRETS (Settings > Secrets and variables > Actions):
+#   - SUPABASE_ACCESS_TOKEN: Get from Supabase dashboard > Account > Access Tokens
+#   - SUPABASE_PROJECT_ID: Found in project settings
+#   - SUPABASE_DB_PASSWORD: Database password
+#
+# 📚 Documentation: https://supabase.com/docs
+# 💰 Pricing: Free tier (500MB database, 2GB bandwidth), then $25/month
+# ⚡ Benefits:
+#   - PostgreSQL database with realtime subscriptions
+#   - Built-in authentication and authorization
+#   - File storage and Edge Functions
+#   - Great free tier for MVPs
+# ⚠️  Considerations:
+#   - Limited customization vs self-hosted
+#   - Pricing can scale with usage
+#   - Best for PostgreSQL workloads
+
+name: Deploy to Supabase
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/**'
+      - 'backend/**'
+      - '!**/*.md'
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to Supabase
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link to Supabase project
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+
+      - name: Push database migrations
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          supabase db push
+
+      - name: Deploy Edge Functions
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          if [ -d "supabase/functions" ]; then
+            supabase functions deploy --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+            echo "✅ Edge Functions deployed"
+          else
+            echo "ℹ️  No Edge Functions to deploy"
+          fi
+
+      - name: Report deployment
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Successfully deployed to Supabase"
+            echo "🗄️  Database migrations applied"
+            echo "🌐 Project URL: https://app.supabase.com/project/${{ secrets.SUPABASE_PROJECT_ID }}"
+          else
+            echo "❌ Deployment to Supabase failed"
+          fi
